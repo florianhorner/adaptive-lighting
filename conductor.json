@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "setup": "# Install uv if missing, then sync dev deps\ncommand -v uv >/dev/null || pip3 install uv --break-system-packages\nuv sync --group dev\n\n# Set up pre-commit hooks\nuv run pre-commit install 2>/dev/null || true",
+    "run": "# Lint with ruff\nuv run ruff check .\n\n# Run tests\nuv run pytest tests/ -v",
+    "archive": "#!/usr/bin/env bash\nset -euo pipefail\ncd \"$(dirname \"$0\")\"\n\n# Remove virtual env and caches\nrm -rf .venv .pytest_cache .ruff_cache 2>/dev/null || true\nfind . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true\nrm -f *.log 2>/dev/null || true"
+  },
+  "runScriptMode": "nonconcurrent"
+}
