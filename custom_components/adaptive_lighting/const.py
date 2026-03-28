@@ -4,7 +4,7 @@ import datetime
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum, StrEnum
-from typing import Any, ClassVar
+from typing import Any
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -21,7 +21,6 @@ DOMAIN = "adaptive_lighting"
 
 SIGNAL_STATUS_UPDATED = f"{DOMAIN}_status_updated"
 
-
 class LightStatus(StrEnum):
     """Status of the adaptive lighting for a light."""
 
@@ -31,13 +30,14 @@ class LightStatus(StrEnum):
     BLOCKED = "blocked"
     ERROR = "error"
 
-    STATUS_PRIORITY: ClassVar[dict["LightStatus", int]] = {
-        ERROR: 5,
-        MANUAL_OVERRIDE: 4,
-        ACTIVE: 2,
-        BLOCKED: 1,
-        INACTIVE: 0,
-    }
+
+STATUS_PRIORITY: dict[str, int] = {
+    "error": 5,
+    "manual_override": 4,
+    "active": 2,
+    "blocked": 1,
+    "inactive": 0,
+}
 
 
 ATTR_STATUS = "status"
@@ -51,6 +51,7 @@ ATTR_STATUS_OVERRIDE_UNTIL = "status_override_until"
 ATTR_STATUS_LAST_ERROR = "status_last_error"
 
 
+
 @dataclass
 class LightStatusInfo:
     """Track adaptive lighting status for a light and source."""
@@ -60,6 +61,8 @@ class LightStatusInfo:
     reason: str | None = None
     source: str | None = None
     last_error: str | None = None
+
+
 
 
 class TakeOverControlMode(Enum):

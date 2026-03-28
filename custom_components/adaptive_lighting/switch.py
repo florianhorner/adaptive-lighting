@@ -144,6 +144,7 @@ from .const import (
     SET_MANUAL_CONTROL_SCHEMA,
     SIGNAL_STATUS_UPDATED,
     SLEEP_MODE_SWITCH,
+    STATUS_PRIORITY,
     TURNING_OFF_DELAY,
     VALIDATION_TUPLES,
     LightStatus,
@@ -1959,9 +1960,7 @@ class AdaptiveLightingManager:
         statuses = list(self.get_light_statuses(light).values())
         if not statuses:
             return LightStatusInfo(status=LightStatus.INACTIVE)
-        winner = max(
-            statuses, key=lambda entry: LightStatus.STATUS_PRIORITY.get(entry.status, 0)
-        )
+        winner = max(statuses, key=lambda entry: STATUS_PRIORITY.get(str(entry.status), 0))
         return LightStatusInfo(
             status=winner.status,
             since=winner.since,
@@ -1972,7 +1971,7 @@ class AdaptiveLightingManager:
 
     @staticmethod
     def _status_priority(status: str) -> int:
-        return LightStatus.STATUS_PRIORITY.get(status, 0)
+        return STATUS_PRIORITY.get(status, 0)
 
     def _separate_entity_ids(
         self,
