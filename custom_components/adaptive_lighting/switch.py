@@ -1959,7 +1959,9 @@ class AdaptiveLightingManager:
         statuses = list(self.get_light_statuses(light).values())
         if not statuses:
             return LightStatusInfo(status=LightStatus.INACTIVE)
-        winner = max(statuses, key=lambda entry: LightStatus.STATUS_PRIORITY.get(entry.status, 0))
+        winner = max(
+            statuses, key=lambda entry: LightStatus.STATUS_PRIORITY.get(entry.status, 0)
+        )
         return LightStatusInfo(
             status=winner.status,
             since=winner.since,
