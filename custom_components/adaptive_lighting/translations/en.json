@@ -135,12 +135,14 @@
         "data": {
           "separate_turn_on_commands": "separate_turn_on_commands",
           "send_split_delay": "send_split_delay",
-          "include_config_in_attributes": "include_config_in_attributes"
+          "include_config_in_attributes": "include_config_in_attributes",
+          "enable_diagnostic_sensors": "enable_diagnostic_sensors"
         },
         "data_description": {
           "separate_turn_on_commands": "Sends brightness and color as two separate commands instead of one. Required for light types that cannot handle both attributes in a single call.",
           "send_split_delay": "Delay (milliseconds) between the brightness and color commands. Requires `separate_turn_on_commands`.",
-          "include_config_in_attributes": "Exposes all configuration values as attributes on the switch entity, visible in Home Assistant developer tools."
+          "include_config_in_attributes": "Exposes all configuration values as attributes on the switch entity, visible in Home Assistant developer tools.",
+          "enable_diagnostic_sensors": "Creates a diagnostic sensor per light showing its current adaptation status (active, blocked, manual override, error). Useful for troubleshooting why a light isn't adapting."
         }
       }
     },

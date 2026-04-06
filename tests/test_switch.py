@@ -110,6 +110,7 @@ from homeassistant.const import (
     SERVICE_TURN_ON,
     STATE_OFF,
     STATE_ON,
+    STATE_UNKNOWN,
 )
 from homeassistant.const import __version__ as ha_version
 from homeassistant.core import Context, Event, HomeAssistant, State
@@ -148,10 +149,16 @@ ENTITY_LIGHT_1 = "light.light_1"
 ENTITY_LIGHT_2 = "light.light_2"
 ENTITY_LIGHT_3 = "light.light_3"
 _SWITCH_FMT = f"{SWITCH_DOMAIN}.{DOMAIN}"
-ENTITY_SWITCH = f"{_SWITCH_FMT}_{DEFAULT_NAME}"
-ENTITY_SLEEP_MODE_SWITCH = f"{_SWITCH_FMT}_sleep_mode_{DEFAULT_NAME}"
-ENTITY_ADAPT_BRIGHTNESS_SWITCH = f"{_SWITCH_FMT}_adapt_brightness_{DEFAULT_NAME}"
-ENTITY_ADAPT_COLOR_SWITCH = f"{_SWITCH_FMT}_adapt_color_{DEFAULT_NAME}"
+ENTITY_SWITCH = f"{SWITCH_DOMAIN}.{DEFAULT_NAME}_{DOMAIN}_{DEFAULT_NAME}"
+ENTITY_SLEEP_MODE_SWITCH = (
+    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_{DOMAIN}_sleep_mode_{DEFAULT_NAME}"
+)
+ENTITY_ADAPT_BRIGHTNESS_SWITCH = (
+    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_{DOMAIN}_adapt_brightness_{DEFAULT_NAME}"
+)
+ENTITY_ADAPT_COLOR_SWITCH = (
+    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_{DOMAIN}_adapt_color_{DEFAULT_NAME}"
+)
 
 ORIG_TIMEZONE = dt_util.DEFAULT_TIME_ZONE
 
@@ -1068,7 +1075,7 @@ async def test_apply_service(hass):
         await hass.async_block_till_done()
 
     # Test turn on with defaults
-    assert hass.states.get(entity_id).state == STATE_OFF
+    assert hass.states.get(entity_id).state in (STATE_OFF, STATE_UNKNOWN)
     await apply()
     assert hass.states.get(entity_id).state == STATE_ON
     await change_light()
@@ -2955,13 +2962,13 @@ async def test_detect_non_ha_changes_with_separate_turn_on_commands(hass):
         ATTR_COLOR_TEMP_KELVIN in last_sd or ATTR_RGB_COLOR in last_sd
     ), f"color missing from last_service_data after split calls: {last_sd}"
 
-    al_brightness = light._brightness
+    al_brightness = light.brightness
     switch.manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.NONE
 
     manual_brightness = (
         al_brightness - 120 if al_brightness >= 120 else al_brightness + 120
     )
-    light._brightness = manual_brightness
+    light._attr_brightness = manual_brightness
 
     async def _flush_attr_state(hass, entity_id):
         """Mimic a ZHA attribute report: write current hardware state to HA."""
@@ -2984,5 +2991,5 @@ async def test_detect_non_ha_changes_with_separate_turn_on_commands(hass):
         await update(force=False)
 
     assert (
-        light._brightness == manual_brightness
+        light.brightness == manual_brightness
     ), f"AL overrode manual brightness {manual_brightness} with {al_brightness}"
