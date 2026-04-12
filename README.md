@@ -1,6 +1,5 @@
-> **This is a maintained community fork** of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with bug fixes, UX improvements, and new features.
-> The upstream project has 20+ unreviewed PRs and the maintainer's own PRs have been sitting for months.
-> This fork ships what the community needs now. Bug fixes are contributed back upstream.
+> **This is a maintained community fork** of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with additional bug fixes, UX improvements, and new features.
+> Community PRs and bug fixes are reviewed and shipped here, and contributed back upstream where possible.
 > See [What this fork adds](#what-this-fork-adds) for details, or [switch back to upstream](#switch-back-to-upstream) if you prefer.
 
 ---
