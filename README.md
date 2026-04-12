@@ -1,18 +1,26 @@
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/github/v/release/basnijholt/adaptive-lighting?style=for-the-badge)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
+![Version](https://img.shields.io/github/v/release/florianhorner/adaptive-lighting?style=for-the-badge)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-134-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-# 🌞 Adaptive Lighting: Enhance Your Home's Atmosphere with Smart, Sun-Synchronized Lighting 🌙
+> **This is a maintained community fork** of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with bug fixes, UX improvements, and new features.
+> The upstream project has 20+ unreviewed PRs and the maintainer's own PRs have been sitting for months.
+> This fork ships what the community needs now. Bug fixes are contributed back upstream.
+> See [What this fork adds](#what-this-fork-adds) for details, or [switch back to upstream](#switch-back-to-upstream) if you prefer.
+
+# Adaptive Lighting: Smart, Sun-Synchronized Lighting for Home Assistant
 
 <img src="https://raw.githubusercontent.com/home-assistant/brands/master/custom_integrations/adaptive_lighting/icon@2x.png" alt="logo" width="256px" height="256px" />
 
-[Adaptive Lighting](https://github.com/basnijholt/adaptive-lighting) is a custom component for [Home Assistant](https://www.home-assistant.io/) that intelligently adjusts the brightness and color of your lights 💡 based on the sun's position, while still allowing for manual control.
+[Adaptive Lighting](https://github.com/florianhorner/adaptive-lighting) is a custom component for [Home Assistant](https://www.home-assistant.io/) that intelligently adjusts the brightness and color of your lights based on the sun's position, while still allowing for manual control.
 
-Download and install directly through [HACS (Home Assistant Community Store)](https://hacs.xyz/):
+Download and install through [HACS (Home Assistant Community Store)](https://hacs.xyz/) as a custom repository:
 
-[![Open your Home Assistant instance and open the Adaptive Lighting integration inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=basnijholt&repository=adaptive-lighting&category=integration)
+1. Open HACS → Integrations → three-dot menu (top right) → **Custom repositories**
+2. Add `florianhorner/adaptive-lighting` as **Integration**
+3. Search "Adaptive Lighting" → Download
+4. Restart Home Assistant
 
 By automatically adapting the settings of your lights throughout the day, Adaptive Lighting helps maintain your natural circadian rhythm 😴, which can lead to improved sleep, mood, and overall well-being. Experience cooler color temperatures at noon, gradually transitioning to warmer colors at sunset and sunrise.
 
@@ -476,6 +484,49 @@ Notice the values of `brightness_mode_time_light` and `brightness_mode_time_dark
 
 > Check out the interactive webapp on https://basnijholt.github.io/adaptive-lighting/ to play with the parameters and see how the brightness changes!
 <!-- SECTION:brightness-modes:END -->
+
+## What this fork adds
+
+This is a community fork of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with
+bug fixes, UX improvements, and features the community has been waiting for.
+
+### Fork-only features
+- **5-step progressive options flow** — guided setup wizard with room presets, replacing the single overwhelming form
+- **Rewritten UI strings** — clear, consistent descriptions across 38 translations
+- **Per-light diagnostic status sensors** — see when AL is active, blocked, or overridden on each light (opt-in)
+
+### Bug fixes (contributed back upstream)
+- **Entity ID duplication on HA 2026.4+** — fix by [@stephanGarland](https://github.com/stephanGarland) ([upstream #1459](https://github.com/basnijholt/adaptive-lighting/issues/1459))
+- **Transient Zigbee off-state cancelling adaptation** — prevents brief off-states from resetting manual control
+- **Log verbosity for self-triggered off-to-on warning** — reduces noisy debug output
+- **Allow `sleep_brightness=0`** — by [@jaynis](https://github.com/jaynis) ([upstream #1455](https://github.com/basnijholt/adaptive-lighting/pull/1455))
+
+### Cherry-picked from upstream community PRs
+- **Diagnostic status sensors** — by [@lehneres](https://github.com/lehneres) ([upstream #1414](https://github.com/basnijholt/adaptive-lighting/pull/1414)), with additional fixes and test coverage
+- **Auto-detect Python version for test matrix** — by [@ademuri](https://github.com/ademuri) ([upstream #1424](https://github.com/basnijholt/adaptive-lighting/pull/1424))
+- **Skip HACS validation on forks** — by [@ademuri](https://github.com/ademuri) ([upstream #1423](https://github.com/basnijholt/adaptive-lighting/pull/1423))
+- **Replace hardcoded URLs with placeholders** — by [@ademuri](https://github.com/ademuri) ([upstream #1422](https://github.com/basnijholt/adaptive-lighting/pull/1422))
+
+### Upstream status
+| Fix/Feature | Status |
+|---|---|
+| Entity ID duplication fix | Filed upstream, not yet submitted as PR |
+| Zigbee off-state fix | [upstream #1460](https://github.com/basnijholt/adaptive-lighting/pull/1460) pending |
+| Log verbosity fix | [upstream #1434](https://github.com/basnijholt/adaptive-lighting/pull/1434) pending |
+| 5-step options wizard | Fork-only |
+| UI string rewrite | Fork-only |
+| Diagnostic sensors | [upstream #1414](https://github.com/basnijholt/adaptive-lighting/pull/1414) pending |
+
+## Switch back to upstream
+
+If you prefer the original project:
+
+1. In HACS → Integrations → find **Adaptive Lighting** → Remove
+2. Remove the custom repository (`florianhorner/adaptive-lighting`) from HACS settings
+3. Install the original via the [default HACS repository](https://my.home-assistant.io/redirect/hacs_repository/?owner=basnijholt&repository=adaptive-lighting&category=integration) or add `basnijholt/adaptive-lighting` as a custom repository
+4. Restart Home Assistant
+
+Your configuration, entities, and automations will carry over — the integration domain (`adaptive_lighting`) is the same.
 
 <!-- SECTION:see-also:START -->
 ## :eyes: See also
