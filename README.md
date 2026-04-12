@@ -1,13 +1,15 @@
+> **This is a maintained community fork** of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with bug fixes, UX improvements, and new features.
+> The upstream project has 20+ unreviewed PRs and the maintainer's own PRs have been sitting for months.
+> This fork ships what the community needs now. Bug fixes are contributed back upstream.
+> See [What this fork adds](#what-this-fork-adds) for details, or [switch back to upstream](#switch-back-to-upstream) if you prefer.
+
+---
+
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
 ![Version](https://img.shields.io/github/v/release/florianhorner/adaptive-lighting?style=for-the-badge)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-134-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
-
-> **This is a maintained community fork** of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with bug fixes, UX improvements, and new features.
-> The upstream project has 20+ unreviewed PRs and the maintainer's own PRs have been sitting for months.
-> This fork ships what the community needs now. Bug fixes are contributed back upstream.
-> See [What this fork adds](#what-this-fork-adds) for details, or [switch back to upstream](#switch-back-to-upstream) if you prefer.
 
 # Adaptive Lighting: Smart, Sun-Synchronized Lighting for Home Assistant
 
