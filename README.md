@@ -1,6 +1,7 @@
-> **This is a maintained community fork** of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with additional bug fixes, UX improvements, and new features.
-> Community PRs and bug fixes are reviewed and shipped here, and contributed back upstream where possible.
-> See [What this fork adds](#what-this-fork-adds) for details, or [switch back to upstream](#switch-back-to-upstream) if you prefer.
+> **Fork of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting)**
+> maintained by [@florianhorner](https://github.com/florianhorner).
+> Additional fixes and community PRs ship here and are contributed back upstream where possible.
+> See [Why this fork exists](#why-this-fork-exists), [What this fork adds](#what-this-fork-adds), or [switch back to upstream](#switch-back-to-upstream).
 
 ---
 
@@ -87,6 +88,7 @@ The `adaptive_lighting.manual_control` event is fired when a light is marked as 
   - [:high_brightness: Brightness](#high_brightness-brightness)
   - [While using `transition_until_sleep: true`](#while-using-transition_until_sleep-true)
   - [Custom brightness ramps using `brightness_mode` with `"linear"` and `"tanh"`](#custom-brightness-ramps-using-brightness_mode-with-linear-and-tanh)
+- [Why this fork exists](#why-this-fork-exists)
 - [What this fork adds](#what-this-fork-adds)
   - [Fork-only features](#fork-only-features)
   - [Bug fixes (contributed back upstream)](#bug-fixes-contributed-back-upstream)
@@ -492,10 +494,19 @@ Notice the values of `brightness_mode_time_light` and `brightness_mode_time_dark
 > Check out the interactive webapp on https://basnijholt.github.io/adaptive-lighting/ to play with the parameters and see how the brightness changes!
 <!-- SECTION:brightness-modes:END -->
 
+## Why this fork exists
+
+This fork ships fixes and pending community contributions on current Home Assistant
+releases while upstream review is still pending.
+
+It keeps the same `adaptive_lighting` integration domain, tracks upstream closely,
+and sends generally useful fixes back upstream where possible.
+
 ## What this fork adds
 
-This is a community fork of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) with
-bug fixes, UX improvements, and features the community has been waiting for.
+This fork is maintained by [Florian Horner](https://github.com/florianhorner) and
+includes bug fixes, UX improvements, and cherry-picked community work already
+running in production here.
 
 ### Fork-only features
 - **5-step progressive options flow** — guided setup wizard with room presets, replacing the single overwhelming form
