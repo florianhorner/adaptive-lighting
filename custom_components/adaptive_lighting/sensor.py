@@ -41,7 +41,7 @@ from .const import (
     SIGNAL_STATUS_UPDATED,
     LightStatus,
 )
-from .helpers import expand_light_groups, get_friendly_name
+from .helpers import expand_light_groups
 
 
 def ensure_status_sensors_enabled(hass: HomeAssistant, entry_id: str) -> None:
@@ -106,6 +106,7 @@ class AdaptiveLightingStatusSensor(SensorEntity):
 
     _attr_should_poll = False
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_has_entity_name = True
 
     def __init__(self, hass: HomeAssistant, manager, light_entity_id: str) -> None:
         """Initialize the per-light status sensor."""
@@ -117,8 +118,7 @@ class AdaptiveLightingStatusSensor(SensorEntity):
     @property
     def name(self) -> str:
         """Return the sensor name."""
-        light_name = get_friendly_name(self.hass, self._light_entity_id)
-        return f"Adaptive Lighting Status: {light_name}"
+        return "Adaptive Lighting Status"
 
     @property
     def native_value(self) -> str:

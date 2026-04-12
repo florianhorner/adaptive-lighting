@@ -847,6 +847,7 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         """Initialize the Adaptive Lighting switch."""
         # Set attributes that can't be modified during runtime
         assert hass is not None
+        self._attr_has_entity_name = True
         self.hass = hass
         self.manager = manager
         self.sleep_mode_switch = sleep_mode_switch
@@ -986,9 +987,9 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         )
 
     @property
-    def name(self) -> str:
-        """Return the name of the device if any."""
-        return f"Adaptive Lighting: {self._name}"
+    def name(self) -> str | None:
+        """Return the name of the entity."""
+        return None
 
     @property
     def unique_id(self) -> str:
@@ -1007,7 +1008,7 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
             identifiers={
                 (DOMAIN, self._name),
             },
-            name=self._name,
+            name=f"Adaptive Lighting: {self._name}",
             entry_type=DeviceEntryType.SERVICE,
         )
 
@@ -1693,6 +1694,7 @@ class SimpleSwitch(SwitchEntity, RestoreEntity):
         icon: str,
     ) -> None:
         """Initialize the Adaptive Lighting switch."""
+        self._attr_has_entity_name = True
         self.hass = hass
         data = validate(config_entry)
         self._icon = icon
@@ -1705,8 +1707,8 @@ class SimpleSwitch(SwitchEntity, RestoreEntity):
 
     @property
     def name(self) -> str:
-        """Return the name of the device if any."""
-        return self._name
+        """Return the name of the entity."""
+        return self._which
 
     @property
     def unique_id(self) -> str:
