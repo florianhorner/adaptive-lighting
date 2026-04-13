@@ -21,9 +21,9 @@
 
 Download and install through [HACS (Home Assistant Community Store)](https://hacs.xyz/) as a custom repository:
 
-1. Open HACS -> Integrations -> three-dot menu (top right) -> **Custom repositories**
+1. Open HACS → Integrations → three-dot menu (top right) → **Custom repositories**
 2. Add `florianhorner/adaptive-lighting` as **Integration**
-3. Search "Adaptive Lighting" -> Download
+3. Search "Adaptive Lighting" → Download
 4. Restart Home Assistant
 
 By automatically adapting the settings of your lights throughout the day, Adaptive Lighting helps maintain your natural circadian rhythm 😴, which can lead to improved sleep, mood, and overall well-being. Experience cooler color temperatures at noon, gradually transitioning to warmer colors at sunset and sunrise.
@@ -48,6 +48,7 @@ Adaptive Lighting provides four switches (using "living_room" as an example comp
 - `switch.adaptive_lighting_sleep_mode_living_room`: Activate "sleep mode" 😴 and set custom sleep_brightness and sleep_color_temp.
 - `switch.adaptive_lighting_adapt_brightness_living_room`: Enable or disable brightness adaptation 🔆 for supported lights.
 - `switch.adaptive_lighting_adapt_color_living_room`: Enable or disable color adaptation 🌈 for supported lights.
+- Optional diagnostic status sensors per light to see when Adaptive Lighting is active, blocked, or overridden.
 <!-- SECTION:features:END -->
 
 <!-- SECTION:manual-control:START -->
@@ -138,7 +139,7 @@ The YAML and frontend configuration methods support all of the options listed be
 | `min_color_temp`               | Warmest color temperature in Kelvin. 🔥                                                                                                                                                                                                                                                                                                                                                       | `2000`         | `int` 1000-10000                        |
 | `max_color_temp`               | Coldest color temperature in Kelvin. ❄️                                                                                                                                                                                                                                                                                                                                                       | `5500`         | `int` 1000-10000                        |
 | `prefer_rgb_color`             | Whether to prefer RGB color adjustment over light color temperature when possible. 🌈                                                                                                                                                                                                                                                                                                         | `False`        | `bool`                                  |
-| `sleep_brightness`             | Brightness percentage of lights in sleep mode. 😴                                                                                                                                                                                                                                                                                                                                             | `1`            | `int` 1-100                             |
+| `sleep_brightness`             | Brightness percentage of lights in sleep mode. Set to 0 to prevent lights from turning on. 😴                                                                                                                                                                                                                                                                                                 | `1`            | `int` 0-100                             |
 | `sleep_rgb_or_color_temp`      | Use either `"rgb_color"` or `"color_temp"` in sleep mode. 🌙                                                                                                                                                                                                                                                                                                                                  | `color_temp`   | one of `['color_temp', 'rgb_color']`    |
 | `sleep_color_temp`             | Color temperature in sleep mode (used when `sleep_rgb_or_color_temp` is `color_temp`) in Kelvin. 😴                                                                                                                                                                                                                                                                                           | `1000`         | `int` 1000-10000                        |
 | `sleep_rgb_color`              | RGB color in sleep mode (used when `sleep_rgb_or_color_temp` is "rgb_color"). 🌈                                                                                                                                                                                                                                                                                                              | `[255, 56, 0]` | RGB color                               |
@@ -168,6 +169,7 @@ The YAML and frontend configuration methods support all of the options listed be
 | `intercept`                    | Intercept and adapt `light.turn_on` calls to enabling instantaneous color and brightness adaptation. 🏎️ Disable for lights that do not support `light.turn_on` with color and brightness.                                                                                                                                                                                                     | `True`         | `bool`                                  |
 | `multi_light_intercept`        | Intercept and adapt `light.turn_on` calls that target multiple lights. ➗⚠️ This might result in splitting up a single `light.turn_on` call into multiple calls, e.g., when lights are in different switches. Requires `intercept` to be enabled.                                                                                                                                             | `True`         | `bool`                                  |
 | `include_config_in_attributes` | Show all options as attributes on the switch in Home Assistant when set to `true`. 📝                                                                                                                                                                                                                                                                                                         | `False`        | `bool`                                  |
+| `enable_diagnostic_sensors`    | Expose per-light Adaptive Lighting status sensors when set to `true`. 🧭                                                                                                                                                                                                                                                                                                                      | `False`        | `bool`                                  |
 
 <!-- OUTPUT:END -->
 
@@ -495,15 +497,13 @@ Notice the values of `brightness_mode_time_light` and `brightness_mode_time_dark
 
 ## Why this fork exists
 
-The upstream [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) project is excellent, but its maintainer has limited bandwidth right now. There are 20+ unreviewed community PRs, and several critical bug fixes haven't landed in a release. I ([Florian Horner](https://github.com/florianhorner)) run Adaptive Lighting in production across my entire home, so I need it to work reliably on the latest Home Assistant releases.
+The upstream [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting) project has a slower release cadence. This fork ships bug fixes, community PRs, and UX improvements that users need now but haven't landed in an upstream release yet. I run Adaptive Lighting across my entire home, so I need it working reliably on the latest Home Assistant.
 
 This fork exists to:
-- **Ship fixes now** rather than waiting months for upstream review
-- **Cherry-pick valuable community PRs** that are stalled upstream, giving their authors' work a place to run in production
+- **Ship fixes now** that haven't landed in an upstream release yet
+- **Cherry-pick valuable community PRs** that are waiting for review, giving their authors' work a place to run in production
 - **Add UX improvements** that make setup and daily use easier
 - **Contribute back** every bug fix as an upstream PR — this fork is additive, not adversarial
-
-I selected, integrated, tested, and shipped every change listed below. Original authors are credited on each item.
 
 ## What this fork adds
 
@@ -512,10 +512,12 @@ includes bug fixes, UX improvements, and features I needed for my setup.
 Original authors are credited below; I integrated, tested, and shipped
 these changes here.
 
+> **Use this fork if** you need the entity ID fix for HA 2026.4+, the Zigbee transient state fix, the guided setup wizard, or diagnostic sensors. Otherwise, prefer upstream.
+
 ### Fork-only changes
 - **5-step progressive options flow** — guided setup wizard with room presets, replacing the single overwhelming form
 - **Rewritten UI strings** — clear, consistent descriptions across 38 translations
-- **Per-light diagnostic status sensors** — see when AL is active, blocked, or overridden on each light (opt-in via `enable_diagnostic_sensors`)
+- **Extended diagnostic sensors** — integrated and extended [@lehneres](https://github.com/lehneres)' [upstream PR #1414](https://github.com/basnijholt/adaptive-lighting/pull/1414) with additional per-light status tracking
 
 ### Sent upstream / pending upstream
 
@@ -531,16 +533,18 @@ these changes here.
 
 These PRs were written by community contributors, reviewed and integrated here with additional fixes and test coverage where needed:
 
-- **Diagnostic status sensors** — by [@lehneres](https://github.com/lehneres) ([upstream #1414](https://github.com/basnijholt/adaptive-lighting/pull/1414))
+- **Diagnostic status sensors** — by [@lehneres](https://github.com/lehneres) ([upstream #1414](https://github.com/basnijholt/adaptive-lighting/pull/1414)), with additional fixes and test coverage
 - **Auto-detect Python version for test matrix** — by [@ademuri](https://github.com/ademuri) ([upstream #1424](https://github.com/basnijholt/adaptive-lighting/pull/1424))
 - **Skip HACS validation on forks** — by [@ademuri](https://github.com/ademuri) ([upstream #1423](https://github.com/basnijholt/adaptive-lighting/pull/1423))
 - **Replace hardcoded URLs with placeholders** — by [@ademuri](https://github.com/ademuri) ([upstream #1422](https://github.com/basnijholt/adaptive-lighting/pull/1422))
+
+When these fixes land in an upstream release, I'll update this guide. This fork is a staging ground, not a permanent alternative.
 
 ## Switch back to upstream
 
 If you prefer the original project:
 
-1. In HACS -> Integrations -> find **Adaptive Lighting** -> Remove
+1. In HACS → Integrations → find **Adaptive Lighting** → Remove
 2. Remove the custom repository (`florianhorner/adaptive-lighting`) from HACS settings
 3. Install the original via the [default HACS repository](https://my.home-assistant.io/redirect/hacs_repository/?owner=basnijholt&repository=adaptive-lighting&category=integration) or add `basnijholt/adaptive-lighting` as a custom repository
 4. Restart Home Assistant
