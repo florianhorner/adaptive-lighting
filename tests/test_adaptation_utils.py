@@ -80,6 +80,67 @@ async def test_split_service_call_data(input_data, expected_data_list):
     assert _split_service_call_data(input_data) == expected_data_list
 
 
+# Tests for the falsy-value behavioral change in _split_service_call_data.
+# Previously `is not None` was used; now truthy check (`if service_data.get(attribute)`)
+# is used. This means falsy-but-non-None values (0, False, [], "") are excluded.
+
+
+@pytest.mark.parametrize(
+    ("input_data", "expected_data_list"),
+    [
+        (
+            # brightness=0 is falsy → excluded under the truthy check
+            {ATTR_BRIGHTNESS: 0},
+            [],
+        ),
+        (
+            # brightness=1 is truthy → included
+            {ATTR_BRIGHTNESS: 1},
+            [{ATTR_BRIGHTNESS: 1}],
+        ),
+        (
+            # brightness=0 with color: brightness dropped, color kept
+            {ATTR_BRIGHTNESS: 0, ATTR_COLOR_TEMP_KELVIN: 3500},
+            [{ATTR_COLOR_TEMP_KELVIN: 3500}],
+        ),
+        (
+            # brightness=0 with entity_id: brightness dropped, entity_id in common
+            {ATTR_ENTITY_ID: "light.test", ATTR_BRIGHTNESS: 0, ATTR_COLOR_TEMP_KELVIN: 4000},
+            [{ATTR_ENTITY_ID: "light.test", ATTR_COLOR_TEMP_KELVIN: 4000}],
+        ),
+        (
+            # hs_color=(0, 0) is a truthy tuple (non-empty) → included
+            {ATTR_HS_COLOR: (0, 0)},
+            [{ATTR_HS_COLOR: (0, 0)}],
+        ),
+        (
+            # brightness=255 (max) with transition=0
+            {ATTR_BRIGHTNESS: 255, ATTR_COLOR_TEMP_KELVIN: 3000, ATTR_TRANSITION: 0},
+            [
+                {ATTR_BRIGHTNESS: 255, ATTR_TRANSITION: 0},
+                {ATTR_COLOR_TEMP_KELVIN: 3000, ATTR_TRANSITION: 0},
+            ],
+        ),
+    ],
+    ids=[
+        "brightness=0 is falsy and excluded",
+        "brightness=1 is truthy and included",
+        "brightness=0 dropped but color kept",
+        "brightness=0 dropped with entity_id and color",
+        "hs_color=(0,0) tuple is truthy and included",
+        "brightness=255 with transition=0 split correctly",
+    ],
+)
+async def test_split_service_call_data_falsy_values(input_data, expected_data_list):
+    """Test that falsy attribute values are excluded after truthy-check change.
+
+    Regression tests for the behavioral change from `is not None` to truthy
+    check in _split_service_call_data.  Values like 0 and False are now
+    treated the same as missing values.
+    """
+    assert _split_service_call_data(input_data) == expected_data_list
+
+
 @pytest.mark.parametrize(
     ("service_data", "state", "service_data_expected"),
     [
