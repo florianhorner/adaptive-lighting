@@ -1,24 +1,11 @@
 """Test Adaptive Lighting config flow."""
 
 from homeassistant.components.adaptive_lighting.const import (
-    CONF_DETECT_NON_HA_CHANGES,
-    CONF_INTERCEPT,
-    CONF_MAX_BRIGHTNESS,
-    CONF_MAX_COLOR_TEMP,
-    CONF_MIN_BRIGHTNESS,
-    CONF_MIN_COLOR_TEMP,
-    CONF_MULTI_LIGHT_INTERCEPT,
-    CONF_ROOM_PRESET,
-    CONF_SEND_SPLIT_DELAY,
-    CONF_SEPARATE_TURN_ON_COMMANDS,
     CONF_SUNRISE_TIME,
     CONF_SUNSET_TIME,
-    CONF_TAKE_OVER_CONTROL,
     DEFAULT_NAME,
     DOMAIN,
     NONE_STR,
-    ROOM_PRESETS,
-    STEP_OPTIONS,
     VALIDATION_TUPLES,
 )
 from homeassistant.config_entries import SOURCE_IMPORT
@@ -28,35 +15,6 @@ from homeassistant.data_entry_flow import FlowResultType
 from tests.common import MockConfigEntry
 
 DEFAULT_DATA = {key: default for key, default, _ in VALIDATION_TUPLES}
-
-# Split DEFAULT_DATA into per-step dicts matching STEP_OPTIONS
-_STEP_DATA: dict[str, dict] = {}
-for step_name, step_keys in STEP_OPTIONS.items():
-    _STEP_DATA[step_name] = {k: v for k, v in DEFAULT_DATA.items() if k in step_keys}
-
-
-async def _walk_all_steps(hass, flow_id, step_data=None):
-    """Walk through all 5 option steps returning the final result.
-
-    step_data is a dict of step_name -> user_input overrides.
-    """
-    if step_data is None:
-        step_data = {}
-    steps = ["init", "sleep", "sun_timing", "manual_control", "workarounds"]
-    result = None
-    for step_name in steps:
-        data = _STEP_DATA[step_name].copy()
-        if step_name in step_data:
-            data.update(step_data[step_name])
-        # Add sunrise/sunset time defaults for time validation steps
-        if step_name == "sun_timing":
-            data.setdefault(CONF_SUNRISE_TIME, NONE_STR)
-            data.setdefault(CONF_SUNSET_TIME, NONE_STR)
-        result = await hass.config_entries.options.async_configure(
-            flow_id,
-            user_input=data,
-        )
-    return result
 
 
 async def test_flow_manual_configuration(hass):
@@ -94,8 +52,8 @@ async def test_import_success(hass):
         assert result["data"][key] == value
 
 
-async def test_options_walks_five_steps(hass):
-    """Test that options flow walks through all 5 steps and saves data."""
+async def test_options(hass):
+    """Test updating options."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         title=DEFAULT_NAME,
@@ -110,15 +68,20 @@ async def test_options_walks_five_steps(hass):
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "init"
 
-    result = await _walk_all_steps(hass, result["flow_id"])
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input=data,
+    )
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    # All default values should be present
-    for key, default in DEFAULT_DATA.items():
-        assert result["data"][key] == default
+    for key, value in data.items():
+        assert result["data"][key] == value
 
 
-async def test_incorrect_options_on_sun_timing(hass):
-    """Test that invalid time values on sun_timing step produce errors."""
+async def test_incorrect_options(hass):
+    """Test updating incorrect options."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         title=DEFAULT_NAME,
@@ -130,32 +93,13 @@ async def test_incorrect_options_on_sun_timing(hass):
     await hass.config_entries.async_setup(entry.entry_id)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    # Walk through init step
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=_STEP_DATA["init"].copy(),
-    )
-    assert result["step_id"] == "sleep"
-
-    # Walk through sleep step
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=_STEP_DATA["sleep"].copy(),
-    )
-    assert result["step_id"] == "sun_timing"
-
-    # Submit invalid time values on sun_timing step
-    data = _STEP_DATA["sun_timing"].copy()
+    data = DEFAULT_DATA.copy()
     data[CONF_SUNRISE_TIME] = "yolo"
     data[CONF_SUNSET_TIME] = "yolo"
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input=data,
     )
-    # Should show form again with errors
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "sun_timing"
 
 
 async def test_import_twice(hass):
@@ -305,11 +249,17 @@ async def test_menu_duplicate_instance(hass):
     assert result["options"] == source_options
 
 
-# ---- New validation tests ----
+# ---------------------------------------------------------------------------
+# Tests for PR changes: simplified single-step options flow
+# ---------------------------------------------------------------------------
 
 
-async def test_options_brightness_range_validation(hass):
-    """Test that min_brightness > max_brightness is rejected on Step 1."""
+async def test_options_single_step_completes(hass):
+    """Test that the options flow completes in a single init step.
+
+    The PR replaced the 5-step wizard with a single 'init' step.
+    Submitting valid options on init should directly create the entry.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         title=DEFAULT_NAME,
@@ -320,22 +270,26 @@ async def test_options_brightness_range_validation(hass):
     await hass.config_entries.async_setup(entry.entry_id)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "init"
 
-    data = _STEP_DATA["init"].copy()
-    data[CONF_MIN_BRIGHTNESS] = 80
-    data[CONF_MAX_BRIGHTNESS] = 20
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input=data,
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "init"
-    assert result["errors"][CONF_MIN_BRIGHTNESS] == "brightness_range_invalid"
+    # Must finish immediately (CREATE_ENTRY), no intermediate steps
+    assert result["type"] == FlowResultType.CREATE_ENTRY
 
 
-async def test_options_color_temp_range_validation(hass):
-    """Test that min_color_temp > max_color_temp is rejected on Step 1."""
+async def test_options_no_room_preset_field(hass):
+    """Test that the simplified options flow does not expose a room_preset field.
+
+    ROOM_PRESETS and CONF_ROOM_PRESET were removed in this PR.
+    The flow must not show or require a room_preset field.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         title=DEFAULT_NAME,
@@ -346,134 +300,27 @@ async def test_options_color_temp_range_validation(hass):
     await hass.config_entries.async_setup(entry.entry_id)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    data = _STEP_DATA["init"].copy()
-    data[CONF_MIN_COLOR_TEMP] = 6000
-    data[CONF_MAX_COLOR_TEMP] = 3000
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=data,
-    )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "init"
-    assert result["errors"][CONF_MIN_COLOR_TEMP] == "color_temp_range_invalid"
 
-
-async def test_options_dependency_take_over_control(hass):
-    """Test that detect_non_ha_changes without take_over_control is rejected."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title=DEFAULT_NAME,
-        data={CONF_NAME: DEFAULT_NAME},
-        options={},
-    )
-    entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(entry.entry_id)
-
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    # Walk to step 4 (manual_control)
-    for step_name in ["init", "sleep", "sun_timing"]:
-        data = _STEP_DATA[step_name].copy()
-        if step_name == "sun_timing":
-            data[CONF_SUNRISE_TIME] = NONE_STR
-            data[CONF_SUNSET_TIME] = NONE_STR
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            user_input=data,
+    schema = result.get("data_schema")
+    # data_schema may be None for YAML-imported entries, but not for UI entries
+    if schema is not None:
+        schema_keys = {
+            (k.schema if hasattr(k, "schema") else k)
+            for k in schema.schema
+        }
+        assert "room_preset" not in schema_keys, (
+            "room_preset should not appear in the options form after PR simplification"
         )
 
-    assert result["step_id"] == "manual_control"
 
-    data = _STEP_DATA["manual_control"].copy()
-    data[CONF_TAKE_OVER_CONTROL] = False
-    data[CONF_DETECT_NON_HA_CHANGES] = True
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=data,
-    )
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "manual_control"
-    assert result["errors"][CONF_DETECT_NON_HA_CHANGES] == "requires_take_over_control"
+async def test_options_no_sleep_step(hass):
+    """Test that the multi-step flow no longer has a separate 'sleep' step.
 
-
-async def test_options_dependency_intercept(hass):
-    """Test that multi_light_intercept without intercept is rejected."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title=DEFAULT_NAME,
-        data={CONF_NAME: DEFAULT_NAME},
-        options={},
-    )
-    entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(entry.entry_id)
-
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    # Walk to step 4
-    for step_name in ["init", "sleep", "sun_timing"]:
-        data = _STEP_DATA[step_name].copy()
-        if step_name == "sun_timing":
-            data[CONF_SUNRISE_TIME] = NONE_STR
-            data[CONF_SUNSET_TIME] = NONE_STR
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            user_input=data,
-        )
-
-    assert result["step_id"] == "manual_control"
-
-    data = _STEP_DATA["manual_control"].copy()
-    data[CONF_INTERCEPT] = False
-    data[CONF_MULTI_LIGHT_INTERCEPT] = True
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=data,
-    )
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "manual_control"
-    assert result["errors"][CONF_MULTI_LIGHT_INTERCEPT] == "requires_intercept"
-
-
-async def test_options_dependency_split_delay(hass):
-    """Test that send_split_delay > 0 without separate_turn_on_commands is rejected."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title=DEFAULT_NAME,
-        data={CONF_NAME: DEFAULT_NAME},
-        options={},
-    )
-    entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(entry.entry_id)
-
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    # Walk to step 5 (workarounds)
-    for step_name in ["init", "sleep", "sun_timing", "manual_control"]:
-        data = _STEP_DATA[step_name].copy()
-        if step_name == "sun_timing":
-            data[CONF_SUNRISE_TIME] = NONE_STR
-            data[CONF_SUNSET_TIME] = NONE_STR
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            user_input=data,
-        )
-
-    assert result["step_id"] == "workarounds"
-
-    data = _STEP_DATA["workarounds"].copy()
-    data[CONF_SEPARATE_TURN_ON_COMMANDS] = False
-    data[CONF_SEND_SPLIT_DELAY] = 100
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=data,
-    )
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "workarounds"
-    assert result["errors"][CONF_SEND_SPLIT_DELAY] == "requires_separate_turn_on"
-
-
-async def test_room_preset_applies_defaults(hass):
-    """Test that selecting a room preset pre-fills default values."""
+    Previously the flow had steps: init → sleep → sun_timing → manual_control → workarounds.
+    After the PR, submitting init should immediately create the entry, never advancing to 'sleep'.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         title=DEFAULT_NAME,
@@ -486,84 +333,71 @@ async def test_room_preset_applies_defaults(hass):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["step_id"] == "init"
 
-    # Submit init with bedroom preset
-    init_data = _STEP_DATA["init"].copy()
-    init_data[CONF_ROOM_PRESET] = "bedroom"
-    # Apply bedroom preset values to init_data
-    bedroom = ROOM_PRESETS["bedroom"]
-    for k, v in bedroom.items():
-        if k in init_data:
-            init_data[k] = v
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input=data,
+    )
+    # Should be CREATE_ENTRY, not FORM (which would indicate another step)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] != FlowResultType.FORM
+
+
+async def test_options_sleep_brightness_zero_rejected(hass):
+    """Test that sleep_brightness=0 is rejected after the validation change.
+
+    The PR changed int_between(0, 100) to int_between(1, 100) for sleep_brightness.
+    Setting sleep_brightness=0 must now be treated as invalid.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["step_id"] == "init"
+
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    data["sleep_brightness"] = 0  # Now invalid (was valid before this PR)
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        user_input=init_data,
+        user_input=data,
     )
-    assert result["step_id"] == "sleep"
+    # Should show errors, not create entry
+    assert result["type"] == FlowResultType.FORM
+    assert result.get("errors")
 
-    # The sleep step should show bedroom preset defaults in the schema
-    # Verify by walking through with defaults and checking final result
-    result = await _walk_remaining_steps(
-        hass,
+
+async def test_options_sleep_brightness_one_accepted(hass):
+    """Test that sleep_brightness=1 is accepted (minimum valid value after PR)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    data["sleep_brightness"] = 1  # Minimum valid value
+
+    result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        from_step="sleep",
+        user_input=data,
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    # Verify bedroom-specific values were applied
-    assert result["data"][CONF_MIN_BRIGHTNESS] == bedroom[CONF_MIN_BRIGHTNESS]
-    assert result["data"][CONF_MAX_BRIGHTNESS] == bedroom[CONF_MAX_BRIGHTNESS]
-
-
-async def _walk_remaining_steps(hass, flow_id, from_step):
-    """Walk remaining steps from a given starting step."""
-    steps = ["sleep", "sun_timing", "manual_control", "workarounds"]
-    started = False
-    result = None
-    for step_name in steps:
-        if step_name == from_step:
-            started = True
-        if not started:
-            continue
-        data = _STEP_DATA[step_name].copy()
-        if step_name == "sun_timing":
-            data.setdefault(CONF_SUNRISE_TIME, NONE_STR)
-            data.setdefault(CONF_SUNSET_TIME, NONE_STR)
-        result = await hass.config_entries.options.async_configure(
-            flow_id,
-            user_input=data,
-        )
-    return result
-
-
-async def test_room_preset_overridable(hass):
-    """Test that preset values can be overridden by user."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title=DEFAULT_NAME,
-        data={CONF_NAME: DEFAULT_NAME},
-        options={},
-    )
-    entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(entry.entry_id)
-
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-
-    # Submit init with bedroom preset but override max_brightness
-    init_data = _STEP_DATA["init"].copy()
-    init_data[CONF_ROOM_PRESET] = "bedroom"
-    bedroom = ROOM_PRESETS["bedroom"]
-    for k, v in bedroom.items():
-        if k in init_data:
-            init_data[k] = v
-    init_data[CONF_MAX_BRIGHTNESS] = 95  # Override the bedroom default of 80
-
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input=init_data,
-    )
-    assert result["step_id"] == "sleep"
-
-    result = await _walk_remaining_steps(hass, result["flow_id"], from_step="sleep")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    # The override should win over the preset
-    assert result["data"][CONF_MAX_BRIGHTNESS] == 95
+    assert result["data"]["sleep_brightness"] == 1
