@@ -97,7 +97,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({vol.Required(CONF_NAME): str}),
+            data_schema=vol.Schema(
+                {vol.Required(CONF_NAME): vol.All(str, vol.Length(max=64))},
+            ),
             errors=errors,
         )
 

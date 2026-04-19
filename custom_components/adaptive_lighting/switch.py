@@ -532,7 +532,11 @@ async def async_setup_entry(  # noqa: PLR0915
         schema=SET_MANUAL_CONTROL_SCHEMA,
     )
 
-    args: VolDictType = {vol.Optional(CONF_USE_DEFAULTS, default="current"): cv.string}
+    args: VolDictType = {
+        vol.Optional(CONF_USE_DEFAULTS, default="current"): vol.In(
+            ["current", "factory", "configuration"],
+        ),
+    }
     # Modifying these after init isn't possible
     skip = (CONF_INTERVAL, CONF_NAME, CONF_LIGHTS)
     for k, _, valid in VALIDATION_TUPLES:

@@ -75,9 +75,13 @@ def setup_service_call_interceptor(
             # Convert data back to read-only
             call.data = ReadOnlyDict(data)
         except Exception:
-            # Blindly catch all exceptions to avoid breaking light.turn_on
+            # Intentionally broad: adaptive lighting must not break light.turn_on
+            # even if our preprocessing crashes. call.data is only reassigned on
+            # success above, so on failure the original read-only data flows
+            # through to the original handler unchanged.
             _LOGGER.exception(
-                "Error for call '%s' in service_func_proxy",
+                "Adaptive lighting interceptor error for '%s'; "
+                "original data preserved and passed to original handler",
                 call.data,
             )
         # Call original service handler with processed data
