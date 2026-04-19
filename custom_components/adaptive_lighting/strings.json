@@ -66,7 +66,7 @@
           "multi_light_intercept": "multi_light_intercept: Intercept and adapt `light.turn_on` calls that target multiple lights. ➗⚠️ This might result in splitting up a single `light.turn_on` call into multiple calls, e.g., when lights are in different switches. Requires `intercept` to be enabled.",
           "include_config_in_attributes": "include_config_in_attributes: Show all options as attributes on the switch in Home Assistant when set to `true`. 📝",
           "enable_diagnostic_sensors": "enable_diagnostic_sensors: Expose per-light Adaptive Lighting status sensors when set to `true`. 🧭",
-          "expand_light_groups": "expand_light_groups: Expand light groups to individual member entities (`true`) or control the group entity directly (`false`)."
+          "expand_light_groups": "expand_light_groups: Expand light groups to their individual member entities (`true`, default). Set to `false` to send adaptation commands to the group entity directly instead of its members."
         },
         "data_description": {
           "interval": "Frequency to adapt the lights, in seconds. 🔄",
@@ -91,8 +91,7 @@
           "take_over_control_mode": "The adaptation pausing mode when other sources change brightness and/or color of lights. `pause_all` always pauses both brightness and color adaptation. `pause_changed` pauses the adaptation of only the changed attributes and continues adapting unchanged attributes, e.g., continues color adaptation when only brightness was changed.",
           "autoreset_control_seconds": "Automatically reset the manual control after a number of seconds. Set to 0 to disable. ⏲️",
           "send_split_delay": "Delay (ms) between `separate_turn_on_commands` for lights that don't support simultaneous brightness and color setting. ⏲️",
-          "adapt_delay": "Wait time (seconds) between light turn on and Adaptive Lighting applying changes. Might help to avoid flickering. ⏲️",
-          "expand_light_groups": "When set to `false`, adaptation commands are sent to the group entity directly instead of its members."
+          "adapt_delay": "Wait time (seconds) between light turn on and Adaptive Lighting applying changes. Might help to avoid flickering. ⏲️"
         }
       },
       "sleep": {
