@@ -1693,6 +1693,13 @@ async def test_change_switch_settings_service(hass):
     await change_switch_settings(**{CONF_USE_DEFAULTS: "configuration"})
     assert switch._sun_light_settings.min_color_temp == 2500
 
+    # Reject unknown use_defaults values via voluptuous allowlist
+    with pytest.raises(
+        voluptuous.error.MultipleInvalid,
+        match="value must be one of",
+    ):
+        await change_switch_settings(**{CONF_USE_DEFAULTS: "oops"})
+
 
 async def test_cancellable_service_calls_task(hass):
     """Test the creation and execution of the task that wraps adaptation service calls."""
