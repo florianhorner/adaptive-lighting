@@ -23,8 +23,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Adaptive Lighting options",
-        "description": "Configure an Adaptive Lighting component. Option names align with the YAML settings. If you've defined this entry in YAML, no options will appear here. For interactive graphs that demonstrate parameter effects, visit [this web app](https://basnijholt.github.io/adaptive-lighting). For further details, see the [official documentation](https://github.com/basnijholt/adaptive-lighting#readme).",
+        "title": "Essentials",
+        "description": "Pick your lights and set brightness and color ranges. Most users only need this page. For interactive graphs, visit [this web app](https://basnijholt.github.io/adaptive-lighting).",
         "data": {
           "lights": "lights: List of light entity_ids to be controlled (may be empty). 🌟",
           "interval": "interval",
@@ -64,13 +64,14 @@
           "skip_redundant_commands": "skip_redundant_commands: Skip sending adaptation commands whose target state already equals the light's known state. Minimizes network traffic and improves the adaptation responsivity in some situations. 📉Disable if physical light states get out of sync with HA's recorded state.",
           "intercept": "intercept: Intercept and adapt `light.turn_on` calls to enabling instantaneous color and brightness adaptation. 🏎️ Disable for lights that do not support `light.turn_on` with color and brightness.",
           "multi_light_intercept": "multi_light_intercept: Intercept and adapt `light.turn_on` calls that target multiple lights. ➗⚠️ This might result in splitting up a single `light.turn_on` call into multiple calls, e.g., when lights are in different switches. Requires `intercept` to be enabled.",
-          "include_config_in_attributes": "include_config_in_attributes: Show all options as attributes on the switch in Home Assistant when set to `true`. 📝"
+          "include_config_in_attributes": "include_config_in_attributes: Show all options as attributes on the switch in Home Assistant when set to `true`. 📝",
+          "enable_diagnostic_sensors": "enable_diagnostic_sensors: Expose per-light Adaptive Lighting status sensors when set to `true`. 🧭"
         },
         "data_description": {
           "interval": "Frequency to adapt the lights, in seconds. 🔄",
           "transition": "Duration of transition when lights change, in seconds. 🕑",
           "initial_transition": "Duration of the first transition when lights turn from `off` to `on` in seconds. ⏲️",
-          "sleep_brightness": "Brightness percentage of lights in sleep mode. 😴",
+          "sleep_brightness": "Brightness percentage of lights in sleep mode. Set to 0 to prevent lights from turning on. 😴",
           "sleep_rgb_or_color_temp": "Use either `\"rgb_color\"` or `\"color_temp\"` in sleep mode. 🌙",
           "sleep_color_temp": "Color temperature in sleep mode (used when `sleep_rgb_or_color_temp` is `color_temp`) in Kelvin. 😴",
           "sleep_rgb_color": "RGB color in sleep mode (used when `sleep_rgb_or_color_temp` is \"rgb_color\"). 🌈",
@@ -91,11 +92,116 @@
           "send_split_delay": "Delay (ms) between `separate_turn_on_commands` for lights that don't support simultaneous brightness and color setting. ⏲️",
           "adapt_delay": "Wait time (seconds) between light turn on and Adaptive Lighting applying changes. Might help to avoid flickering. ⏲️"
         }
+      },
+      "sleep": {
+        "title": "Sleep Mode",
+        "description": "Configure how lights behave when sleep mode is active.",
+        "data": {
+          "sleep_brightness": "sleep_brightness",
+          "sleep_rgb_or_color_temp": "sleep_rgb_or_color_temp",
+          "sleep_color_temp": "sleep_color_temp",
+          "sleep_rgb_color": "sleep_rgb_color",
+          "sleep_transition": "sleep_transition",
+          "transition_until_sleep": "transition_until_sleep"
+        },
+        "data_description": {
+          "sleep_brightness": "Brightness (%) applied while sleep mode is active.",
+          "sleep_rgb_or_color_temp": "Selects whether sleep mode applies a color temperature (`color_temp`) or an RGB color (`rgb_color`).",
+          "sleep_color_temp": "Color temperature (Kelvin) applied while sleep mode is active. Requires `sleep_rgb_or_color_temp` set to `color_temp`.",
+          "sleep_rgb_color": "RGB color applied while sleep mode is active. Requires `sleep_rgb_or_color_temp` set to `rgb_color`.",
+          "sleep_transition": "Fade duration (seconds) when entering or exiting sleep mode.",
+          "transition_until_sleep": "Treats sleep mode values as the nighttime floor. After sunset, brightness and color temperature gradually approach the sleep settings instead of stopping at the configured minimums."
+        }
+      },
+      "sun_timing": {
+        "title": "Sun & Timing",
+        "description": "Fine-tune sunrise/sunset times, update intervals, and brightness curves.",
+        "data": {
+          "sunrise_time": "sunrise_time",
+          "min_sunrise_time": "min_sunrise_time",
+          "max_sunrise_time": "max_sunrise_time",
+          "sunrise_offset": "sunrise_offset",
+          "sunset_time": "sunset_time",
+          "min_sunset_time": "min_sunset_time",
+          "max_sunset_time": "max_sunset_time",
+          "sunset_offset": "sunset_offset",
+          "interval": "interval",
+          "initial_transition": "initial_transition",
+          "adapt_delay": "adapt_delay",
+          "brightness_mode": "brightness_mode",
+          "brightness_mode_time_dark": "brightness_mode_time_dark",
+          "brightness_mode_time_light": "brightness_mode_time_light"
+        },
+        "data_description": {
+          "sunrise_time": "Overrides the calculated sunrise with a fixed time (HH:MM:SS). Leave unset to use the actual local sunrise.",
+          "min_sunrise_time": "Earliest allowed sunrise time (HH:MM:SS). The effective sunrise never occurs before this time.",
+          "max_sunrise_time": "Latest allowed sunrise time (HH:MM:SS). The effective sunrise never occurs after this time.",
+          "sunrise_offset": "Shifts the sunrise time (seconds). Positive values delay sunrise; negative values advance it.",
+          "sunset_time": "Overrides the calculated sunset with a fixed time (HH:MM:SS). Leave unset to use the actual local sunset.",
+          "min_sunset_time": "Earliest allowed sunset time (HH:MM:SS). The effective sunset never occurs before this time.",
+          "max_sunset_time": "Latest allowed sunset time (HH:MM:SS). The effective sunset never occurs after this time.",
+          "sunset_offset": "Shifts the sunset time (seconds). Positive values delay sunset; negative values advance it.",
+          "interval": "Update frequency (seconds) for recalculating and applying light settings.",
+          "initial_transition": "Fade duration (seconds) when a light first turns on from an off state.",
+          "adapt_delay": "Wait time (seconds) after a light turns on before applying adaptive settings. Increase if lights flicker or reset on turn-on.",
+          "brightness_mode": "Brightness calculation algorithm. `default` follows a smooth solar curve. `linear` ramps evenly between min and max. `tanh` applies a gradual S-curve shaped by `brightness_mode_time_dark` and `brightness_mode_time_light`.",
+          "brightness_mode_time_dark": "Dark-side transition window (seconds): how long before sunrise brightness begins rising and how long after sunset it finishes falling. Requires `brightness_mode` set to `linear` or `tanh`.",
+          "brightness_mode_time_light": "Light-side transition window (seconds): how long after sunrise brightness finishes rising and how long before sunset it begins falling. Requires `brightness_mode` set to `linear` or `tanh`."
+        }
+      },
+      "manual_control": {
+        "title": "Behavior",
+        "description": "How the integration responds when something else changes your lights.",
+        "data": {
+          "take_over_control": "take_over_control",
+          "take_over_control_mode": "take_over_control_mode",
+          "detect_non_ha_changes": "detect_non_ha_changes",
+          "autoreset_control_seconds": "autoreset_control_seconds",
+          "only_once": "only_once",
+          "adapt_only_on_bare_turn_on": "adapt_only_on_bare_turn_on",
+          "intercept": "intercept",
+          "multi_light_intercept": "multi_light_intercept",
+          "skip_redundant_commands": "skip_redundant_commands"
+        },
+        "data_description": {
+          "take_over_control": "Pauses adaptation when another source (automation, scene, or voice assistant) changes a light. The light stays paused until turned off and on again or reset via the `set_manual_control` service.",
+          "take_over_control_mode": "Controls which attributes pause when another source changes a light. `pause_all` stops both brightness and color adaptation. `pause_changed` stops only the attribute that was changed and continues adapting the other.",
+          "detect_non_ha_changes": "Detects changes made outside Home Assistant (physical switches, third-party apps) by polling lights each interval, and pauses adaptation until manually reset. Requires `take_over_control`. ⚠️ Some lights falsely report an 'on' state, which can cause them to turn on unexpectedly. Disable if you observe unintended behavior.",
+          "autoreset_control_seconds": "Resumes adaptive control automatically after a light has been manually controlled for this duration (seconds). Set to 0 to disable auto-reset.",
+          "only_once": "Applies adaptive settings only at the moment a light turns on, without continuing to update while the light stays on.",
+          "adapt_only_on_bare_turn_on": "Skips adaptation when a light is turned on with explicit color or brightness values (e.g., a scene). The light is then treated as manually controlled. Requires `take_over_control`.",
+          "intercept": "Prevents lights from flashing at incorrect settings on turn-on by intercepting the command and immediately applying adaptive brightness and color. Disable for lights that do not accept color or brightness on turn-on.",
+          "multi_light_intercept": "Extends interception to commands targeting multiple lights at once. ⚠️ May split a single command into per-light calls, which can behave differently for lights managed by separate switches. Requires `intercept`.",
+          "skip_redundant_commands": "Skips commands when the target state matches the light's last known state, reducing network traffic. Disable if light states drift out of sync."
+        }
+      },
+      "workarounds": {
+        "title": "Device Workarounds",
+        "description": "Fixes for specific hardware quirks. Skip this page unless something isn't working right.",
+        "data": {
+          "separate_turn_on_commands": "separate_turn_on_commands",
+          "send_split_delay": "send_split_delay",
+          "include_config_in_attributes": "include_config_in_attributes",
+          "enable_diagnostic_sensors": "enable_diagnostic_sensors"
+        },
+        "data_description": {
+          "separate_turn_on_commands": "Sends brightness and color as two separate commands instead of one. Required for light types that cannot handle both attributes in a single call.",
+          "send_split_delay": "Delay (milliseconds) between the brightness and color commands. Requires `separate_turn_on_commands`.",
+          "include_config_in_attributes": "Exposes all configuration values as attributes on the switch entity, visible in Home Assistant developer tools.",
+          "enable_diagnostic_sensors": "Creates a diagnostic sensor per light showing its current adaptation status (active, blocked, manual override, error). Useful for troubleshooting why a light isn't adapting."
+        }
       }
     },
     "error": {
       "option_error": "Invalid option",
-      "entity_missing": "One or more selected light entities are missing from Home Assistant"
+      "entity_missing": "One or more selected light entities are missing from Home Assistant",
+      "brightness_range_invalid": "Minimum brightness must be less than or equal to maximum brightness",
+      "color_temp_range_invalid": "Minimum color temperature must be less than or equal to maximum color temperature",
+      "sunrise_range_invalid": "Minimum sunrise time must be earlier than maximum sunrise time",
+      "sunset_range_invalid": "Minimum sunset time must be earlier than maximum sunset time",
+      "requires_take_over_control": "This option requires take_over_control to be enabled",
+      "requires_intercept": "This option requires intercept to be enabled",
+      "requires_separate_turn_on": "This option only applies when separate_turn_on_commands is enabled"
     }
   },
   "services": {
@@ -212,7 +318,7 @@
           "name": "send_split_delay"
         },
         "sleep_brightness": {
-          "description": "Brightness percentage of lights in sleep mode. 😴",
+          "description": "Brightness percentage of lights in sleep mode. Set to 0 to prevent lights from turning on. 😴",
           "name": "sleep_brightness"
         },
         "sleep_rgb_or_color_temp": {

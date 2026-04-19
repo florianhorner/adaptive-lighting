@@ -324,3 +324,157 @@ async def test_menu_duplicate_instance(hass):
     assert result["title"] == "duplicated"
     # Duplicated instance should have copied options
     assert result["options"] == source_options
+
+
+# ---------------------------------------------------------------------------
+# Tests for PR changes: simplified single-step options flow
+# ---------------------------------------------------------------------------
+
+
+async def test_options_single_step_completes(hass):
+    """Test that the options flow completes in a single init step.
+
+    The PR replaced the 5-step wizard with a single 'init' step.
+    Submitting valid options on init should directly create the entry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input=data,
+    )
+    # Must finish immediately (CREATE_ENTRY), no intermediate steps
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+
+async def test_options_no_room_preset_field(hass):
+    """Test that the simplified options flow does not expose a room_preset field.
+
+    ROOM_PRESETS and CONF_ROOM_PRESET were removed in this PR.
+    The flow must not show or require a room_preset field.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    schema = result.get("data_schema")
+    # data_schema may be None for YAML-imported entries, but not for UI entries
+    if schema is not None:
+        schema_keys = {
+            (k.schema if hasattr(k, "schema") else k)
+            for k in schema.schema
+        }
+        assert "room_preset" not in schema_keys, (
+            "room_preset should not appear in the options form after PR simplification"
+        )
+
+
+async def test_options_no_sleep_step(hass):
+    """Test that the multi-step flow no longer has a separate 'sleep' step.
+
+    Previously the flow had steps: init → sleep → sun_timing → manual_control → workarounds.
+    After the PR, submitting init should immediately create the entry, never advancing to 'sleep'.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["step_id"] == "init"
+
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input=data,
+    )
+    # Should be CREATE_ENTRY, not FORM (which would indicate another step)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] != FlowResultType.FORM
+
+
+async def test_options_sleep_brightness_zero_rejected(hass):
+    """Test that sleep_brightness=0 is rejected after the validation change.
+
+    The PR changed int_between(0, 100) to int_between(1, 100) for sleep_brightness.
+    Setting sleep_brightness=0 must now be treated as invalid.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["step_id"] == "init"
+
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    data["sleep_brightness"] = 0  # Now invalid (was valid before this PR)
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input=data,
+    )
+    # Should show errors, not create entry
+    assert result["type"] == FlowResultType.FORM
+    assert result.get("errors")
+
+
+async def test_options_sleep_brightness_one_accepted(hass):
+    """Test that sleep_brightness=1 is accepted (minimum valid value after PR)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={CONF_NAME: DEFAULT_NAME},
+        options={},
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    data = DEFAULT_DATA.copy()
+    data[CONF_SUNRISE_TIME] = NONE_STR
+    data[CONF_SUNSET_TIME] = NONE_STR
+    data["sleep_brightness"] = 1  # Minimum valid value
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input=data,
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["sleep_brightness"] == 1
