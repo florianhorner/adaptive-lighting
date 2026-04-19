@@ -34,7 +34,8 @@
           "max_color_temp": "max_color_temp: Kälteste Farbtemperatur in Kelvin. ❄️",
           "prefer_rgb_color": "prefer_rgb_color: Ob die RGB-Farbanpassung der Farbtemperaturanpassung vorgezogen werden soll, wenn möglich. 🌈",
           "transition": "transition, Wechselzeit in Sekunden",
-          "room_preset": "Room preset"
+          "room_preset": "Room preset",
+          "expand_light_groups": "expand_light_groups: Lichtgruppen auf einzelne Mitgliedsentitäten erweitern (`true`) oder die Gruppenentität direkt steuern (`false`)."
         },
         "data_description": {
           "transition": "Dauer des Übergangs beim Lichtwechsel in Sekunden. 🕑",
