@@ -1043,6 +1043,30 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         hass = hass or self.hass
         if self._expand_light_groups_flag:
             all_lights = _expand_light_groups(hass, self.lights)
+            # Warn once per group entity that the user may want to opt out of
+            # expansion. Breaks integrations that fan out internally (Lightener
+            # brightness curves, Hue rooms, Zigbee2MQTT groups). Attached to
+            # the switch-configured path specifically so unrelated utility
+            # expansions (e.g. _switches_with_lights matching) stay silent.
+            for light in self.lights:
+                state = hass.states.get(light)
+                if (
+                    state is not None
+                    and _is_light_group(state)
+                    and light not in self.manager.expand_light_groups_warned
+                ):
+                    self.manager.expand_light_groups_warned.add(light)
+                    _LOGGER.warning(
+                        "Adaptive Lighting switch '%s' is expanding light group "
+                        "'%s' to its members %s. If this entity is managed by an "
+                        "integration with its own brightness logic (e.g. "
+                        "Lightener, Hue rooms, Zigbee2MQTT groups), set "
+                        "'expand_light_groups: false' on this switch to preserve "
+                        "that logic.",
+                        self._name,
+                        light,
+                        state.attributes["entity_id"],
+                    )
         else:
             all_lights = list(self.lights)  # keep group entities as-is
         self.manager.lights.update(all_lights)
@@ -1809,6 +1833,11 @@ class AdaptiveLightingManager:
         # Track auto reset of manual_control
         self.auto_reset_manual_control_timers: dict[str, _AsyncSingleShotTimer] = {}
         self.auto_reset_manual_control_times: dict[str, float] = {}
+
+        # Track entities already warned about silent group expansion (see
+        # _expand_light_groups). One warning per entity per HA run — enough to
+        # surface the Lightener / Hue-room footgun without spamming the log.
+        self.expand_light_groups_warned: set[str] = set()
 
         # Track light transitions
         self.transition_timers: dict[str, _AsyncSingleShotTimer] = {}
