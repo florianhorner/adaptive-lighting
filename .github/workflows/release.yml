@@ -34,6 +34,11 @@ jobs:
         with:
           files: adaptive_lighting.zip
           generate_release_notes: true
+          # Auto-flag dev tags so HACS doesn't promote them to stable users.
+          # Covers -alpha, -beta, -rc, and -dev suffixes (optionally numbered:
+          # -beta.1, -rc2, etc.). softprops/action-gh-release v2 does NOT
+          # infer prerelease from tag name — this ref contains check does.
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') || contains(github.ref, '-dev') }}
           body: |
             ## Installation
 
