@@ -3149,3 +3149,161 @@ async def test_separate_turn_on_commands_respects_light_off_state(hass):
                 f"Call data: {call_info['event'].data}",
             )
 
+
+# ============================================================================
+# expand_light_groups option coverage (upstream PR #1462)
+# ============================================================================
+
+
+def test_expand_light_groups_const_wiring():
+    """Option must be fully wired: default True, in VALIDATION_TUPLES, in
+    STEP_OPTIONS["workarounds"] (so the 5-step UI exposes it), and documented."""
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+        DEFAULT_EXPAND_LIGHT_GROUPS,
+        DOCS,
+        STEP_OPTIONS,
+        VALIDATION_TUPLES,
+    )
+
+    assert DEFAULT_EXPAND_LIGHT_GROUPS is True, (
+        "Default must be True to preserve legacy behavior for existing users"
+    )
+
+    entries = {k: (default, validator) for k, default, validator in VALIDATION_TUPLES}
+    assert CONF_EXPAND_LIGHT_GROUPS in entries
+    assert entries[CONF_EXPAND_LIGHT_GROUPS][0] is True
+    assert entries[CONF_EXPAND_LIGHT_GROUPS][1] is bool
+
+    assert CONF_EXPAND_LIGHT_GROUPS in STEP_OPTIONS["workarounds"], (
+        "Option must live in workarounds step so users can toggle it in the UI"
+    )
+
+    assert CONF_EXPAND_LIGHT_GROUPS in DOCS
+    assert DOCS[CONF_EXPAND_LIGHT_GROUPS], "User-facing description must not be empty"
+
+
+async def test_expand_light_groups_false_keeps_group_entity(hass, cleanup):
+    """flag=False: manager.lights holds the group entity, not its members.
+
+    With this, adaptation calls land on the group (and its integration — e.g.
+    Lightener, Hue room — handles fan-out) instead of bypassing it with
+    per-member turn_on calls.
+    """
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    lights = await setup_lights(hass, with_group=True)
+    non_group_entity_ids = [light.entity_id for light in lights[:3]]
+    entity_ids = [*non_group_entity_ids, "light.light_group"]
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: entity_ids,
+            CONF_EXPAND_LIGHT_GROUPS: False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert "light.light_group" in switch.manager.lights
+    assert "light.light_4" not in switch.manager.lights
+    assert "light.light_5" not in switch.manager.lights
+    for eid in non_group_entity_ids:
+        assert eid in switch.manager.lights
+
+
+async def test_expand_light_groups_true_expands_to_members(hass, cleanup):
+    """flag=True (default): manager.lights holds members, not the group."""
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    lights = await setup_lights(hass, with_group=True)
+    entity_ids = [light.entity_id for light in lights[:3]]
+    entity_ids.append("light.light_group")
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: entity_ids,
+            CONF_EXPAND_LIGHT_GROUPS: True,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert "light.light_4" in switch.manager.lights
+    assert "light.light_5" in switch.manager.lights
+
+
+async def test_expand_light_groups_false_non_group_unaffected(hass, cleanup):
+    """Non-group lights: flag=False is a no-op. Protects existing users who
+    flip the flag on a switch that happens to not contain any light groups."""
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    lights = await setup_lights(hass)  # no group
+    entity_ids = [light.entity_id for light in lights]
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: entity_ids,
+            CONF_EXPAND_LIGHT_GROUPS: False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    for eid in entity_ids:
+        assert eid in switch.manager.lights
+
+
+async def test_expand_light_groups_false_group_turn_on_reaches_group(hass, cleanup):
+    """flag=False: a user turn_on on a light group must emit at least one
+    service call whose target IS the group entity (not silently re-routed to
+    members). This is the whole point of the feature — without it the
+    Lightener / Hue-room use case is broken.
+    """
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    await setup_lights(hass, with_group=True)
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: ["light.light_group"],
+            CONF_EXPAND_LIGHT_GROUPS: False,
+            CONF_INTERCEPT: True,
+            CONF_TAKE_OVER_CONTROL: False,
+        },
+    )
+    await hass.async_block_till_done()
+    assert switch.is_on
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_OFF,
+        {ATTR_ENTITY_ID: "light.light_group"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    events = await _turn_on_and_track_event_contexts(
+        hass,
+        "user-triggered-on",
+        "light.light_group",
+        return_full_events=True,
+    )
+
+    def _targets(ev):
+        target = ev.data.get("service_data", {}).get(ATTR_ENTITY_ID)
+        if isinstance(target, str):
+            return [target]
+        if isinstance(target, list):
+            return target
+        return []
+
+    group_targeted = any(
+        "light.light_group" in _targets(e)
+        for e in events
+        if e.data.get("service") == SERVICE_TURN_ON
+    )
+    assert group_targeted, (
+        "Expected at least one light.turn_on targeting the group entity when "
+        "expand_light_groups=False, but the group was never addressed. "
+        f"Events: {[(e.data.get('service'), _targets(e)) for e in events]}"
+    )
+
+
