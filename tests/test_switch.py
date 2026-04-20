@@ -3149,3 +3149,372 @@ async def test_separate_turn_on_commands_respects_light_off_state(hass):
                 f"Call data: {call_info['event'].data}",
             )
 
+
+# ============================================================================
+# expand_light_groups option coverage (upstream PR #1462)
+# ============================================================================
+
+
+def test_expand_light_groups_const_wiring():
+    """Option must be fully wired: default True, in VALIDATION_TUPLES, in
+    STEP_OPTIONS["workarounds"] (so the 5-step UI exposes it), and documented."""
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+        DEFAULT_EXPAND_LIGHT_GROUPS,
+        DOCS,
+        STEP_OPTIONS,
+        VALIDATION_TUPLES,
+    )
+
+    assert DEFAULT_EXPAND_LIGHT_GROUPS is True, (
+        "Default must be True to preserve legacy behavior for existing users"
+    )
+
+    entries = {k: (default, validator) for k, default, validator in VALIDATION_TUPLES}
+    assert CONF_EXPAND_LIGHT_GROUPS in entries
+    assert entries[CONF_EXPAND_LIGHT_GROUPS][0] is True
+    assert entries[CONF_EXPAND_LIGHT_GROUPS][1] is bool
+
+    assert CONF_EXPAND_LIGHT_GROUPS in STEP_OPTIONS["workarounds"], (
+        "Option must live in workarounds step so users can toggle it in the UI"
+    )
+
+    assert CONF_EXPAND_LIGHT_GROUPS in DOCS
+    assert DOCS[CONF_EXPAND_LIGHT_GROUPS], "User-facing description must not be empty"
+
+
+async def test_expand_light_groups_false_keeps_group_entity(hass, cleanup):
+    """flag=False: manager.lights holds the group entity, not its members.
+
+    With this, adaptation calls land on the group (and its integration — e.g.
+    Lightener, Hue room — handles fan-out) instead of bypassing it with
+    per-member turn_on calls.
+    """
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    lights = await setup_lights(hass, with_group=True)
+    non_group_entity_ids = [light.entity_id for light in lights[:3]]
+    entity_ids = [*non_group_entity_ids, "light.light_group"]
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: entity_ids,
+            CONF_EXPAND_LIGHT_GROUPS: False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert "light.light_group" in switch.manager.lights
+    assert "light.light_4" not in switch.manager.lights
+    assert "light.light_5" not in switch.manager.lights
+    for eid in non_group_entity_ids:
+        assert eid in switch.manager.lights
+
+
+async def test_expand_light_groups_true_expands_to_members(hass, cleanup):
+    """flag=True (default): manager.lights holds members, not the group."""
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    lights = await setup_lights(hass, with_group=True)
+    entity_ids = [light.entity_id for light in lights[:3]]
+    entity_ids.append("light.light_group")
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: entity_ids,
+            CONF_EXPAND_LIGHT_GROUPS: True,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert "light.light_4" in switch.manager.lights
+    assert "light.light_5" in switch.manager.lights
+
+
+async def test_expand_light_groups_false_non_group_unaffected(hass, cleanup):
+    """Non-group lights: flag=False is a no-op. Protects existing users who
+    flip the flag on a switch that happens to not contain any light groups."""
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    lights = await setup_lights(hass)  # no group
+    entity_ids = [light.entity_id for light in lights]
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: entity_ids,
+            CONF_EXPAND_LIGHT_GROUPS: False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    for eid in entity_ids:
+        assert eid in switch.manager.lights
+
+
+async def test_expand_light_groups_false_group_turn_on_reaches_group(hass, cleanup):
+    """flag=False: a user turn_on on a light group must emit at least one
+    service call whose target IS the group entity (not silently re-routed to
+    members). This is the whole point of the feature — without it the
+    Lightener / Hue-room use case is broken.
+    """
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    await setup_lights(hass, with_group=True)
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: ["light.light_group"],
+            CONF_EXPAND_LIGHT_GROUPS: False,
+            CONF_INTERCEPT: True,
+            CONF_TAKE_OVER_CONTROL: False,
+        },
+    )
+    await hass.async_block_till_done()
+    assert switch.is_on
+
+    await hass.services.async_call(
+        LIGHT_DOMAIN,
+        SERVICE_TURN_OFF,
+        {ATTR_ENTITY_ID: "light.light_group"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    events = await _turn_on_and_track_event_contexts(
+        hass,
+        "user-triggered-on",
+        "light.light_group",
+        return_full_events=True,
+    )
+
+    def _targets(ev):
+        target = ev.data.get("service_data", {}).get(ATTR_ENTITY_ID)
+        if isinstance(target, str):
+            return [target]
+        if isinstance(target, list):
+            return target
+        return []
+
+    group_targeted = any(
+        "light.light_group" in _targets(e)
+        for e in events
+        if e.data.get("service") == SERVICE_TURN_ON
+    )
+    assert group_targeted, (
+        "Expected at least one light.turn_on targeting the group entity when "
+        "expand_light_groups=False, but the group was never addressed. "
+        f"Events: {[(e.data.get('service'), _targets(e)) for e in events]}"
+    )
+
+
+async def test_expand_light_groups_false_adapt_cycle_dispatches_to_group(
+    hass,
+    cleanup,
+):
+    """Gap 1: periodic adaptation cycle (not just user turn_on) must target
+    the group entity when flag=False — never a member.
+
+    We spy on `_adapt_light` rather than the downstream turn_on event because
+    HA's template light + default settings can short-circuit the actual service
+    call for a variety of unrelated reasons (no color_temp change, color mode,
+    etc.). What we actually want to lock in is the AL dispatch decision:
+    which entity_id does the adapt cycle choose to adapt? That's the
+    Lightener-critical semantic — dispatch shape, not service-call shape.
+    """
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    await setup_lights(hass, with_group=True)
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: ["light.light_group"],
+            CONF_EXPAND_LIGHT_GROUPS: False,
+            CONF_INTERCEPT: False,
+            CONF_TAKE_OVER_CONTROL: False,
+        },
+    )
+    await hass.async_block_till_done()
+    assert "light.light_group" in switch.manager.lights
+
+    # Group needs a full, "on" state for the adapt cycle to consider it.
+    hass.states.async_set(
+        "light.light_group",
+        STATE_ON,
+        {
+            ATTR_BRIGHTNESS: 128,
+            "color_temp_kelvin": 3000,
+            "min_color_temp_kelvin": 2000,
+            "max_color_temp_kelvin": 6535,
+            "min_mireds": 153,
+            "max_mireds": 500,
+            "entity_id": ["light.light_4", "light.light_5"],
+            "supported_color_modes": ["color_temp", "hs"],
+            "color_mode": "color_temp",
+        },
+    )
+    await hass.async_block_till_done()
+
+    dispatched_entity_ids: list[str] = []
+    original_adapt_light = switch._adapt_light
+
+    async def spy(*args, **kwargs):
+        light_arg = args[0] if args else kwargs.get("light")
+        dispatched_entity_ids.append(light_arg)
+        return await original_adapt_light(*args, **kwargs)
+
+    switch._adapt_light = spy
+
+    await switch._update_attrs_and_maybe_adapt_lights(
+        context=switch.create_context("adpt"),
+        force=True,
+    )
+    await hass.async_block_till_done()
+
+    assert "light.light_group" in dispatched_entity_ids, (
+        "Adapt cycle must dispatch to the group entity when "
+        f"expand_light_groups=False. Dispatched: {dispatched_entity_ids}"
+    )
+    assert "light.light_4" not in dispatched_entity_ids, (
+        "Adapt cycle must NOT dispatch to group members directly when "
+        "expand_light_groups=False — that's the Lightener-breaking bypass. "
+        f"Dispatched: {dispatched_entity_ids}"
+    )
+    assert "light.light_5" not in dispatched_entity_ids
+
+
+async def test_expand_light_groups_false_no_false_manual_control(hass, cleanup):
+    """Gap 2: with flag=False + take_over_control=True, state changes that
+    originate from the group's own fan-out (e.g. Lightener updating member
+    bulbs internally) must NOT be attributed as user manual control.
+
+    Without this guarantee, every adapt cycle would mark members as manually
+    controlled and the next cycle would skip adaptation entirely — death
+    spiral with curves that eventually never fire.
+    """
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    await setup_lights(hass, with_group=True)
+    _, switch = await setup_switch(
+        hass,
+        {
+            CONF_LIGHTS: ["light.light_group"],
+            CONF_EXPAND_LIGHT_GROUPS: False,
+            CONF_TAKE_OVER_CONTROL: True,
+            CONF_INTERCEPT: True,
+        },
+    )
+    await hass.async_block_till_done()
+
+    # The group is what AL tracks; members are not in manager.lights and so
+    # shouldn't accrue manual_control entries even if their state changes.
+    assert "light.light_group" in switch.manager.lights
+    assert "light.light_4" not in switch.manager.lights
+    assert "light.light_5" not in switch.manager.lights
+
+    # Trigger a proxy for "Lightener fans out": bypass HA's group logic and set
+    # member states directly. Real Lightener goes through light.turn_on on the
+    # members with its own context; the important property we're testing is
+    # that members NOT in manager.lights never populate manual_control.
+    for member in ("light.light_4", "light.light_5"):
+        hass.states.async_set(member, STATE_ON, {ATTR_BRIGHTNESS: 128})
+    await hass.async_block_till_done()
+
+    assert "light.light_4" not in switch.manager.manual_control, (
+        "Member light.light_4 is not tracked by AL when expand_light_groups=False; "
+        "internal Lightener-style state updates must never populate manual_control."
+    )
+    assert "light.light_5" not in switch.manager.manual_control
+    # And the group itself — which IS tracked — must stay clean because no
+    # user-originated light.turn_on targeted it.
+    assert not switch.manager.manual_control.get("light.light_group")
+
+
+async def test_expand_light_groups_true_emits_warning_once(hass, cleanup, caplog):
+    """Gap 3: when AL expands a light group (flag=True, the default), a
+    one-time WARNING must surface so users running Lightener/Hue rooms/Zigbee
+    groups discover the flag instead of silently losing their per-member
+    brightness logic.
+
+    Debounced: warning fires at most once per entity per HA run so repeated
+    expansions during adapt cycles don't spam the log.
+    """
+    import logging
+
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    await setup_lights(hass, with_group=True)
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.adaptive_lighting"):
+        _, switch = await setup_switch(
+            hass,
+            {
+                CONF_LIGHTS: ["light.light_group"],
+                CONF_EXPAND_LIGHT_GROUPS: True,
+            },
+        )
+        await hass.async_block_till_done()
+
+        warnings = [
+            rec
+            for rec in caplog.records
+            if rec.levelno == logging.WARNING
+            and "expanding light group" in rec.getMessage().lower()
+            and "light.light_group" in rec.getMessage()
+        ]
+        assert len(warnings) >= 1, (
+            "Expected a WARNING about silent group expansion to surface the "
+            "expand_light_groups flag to users. Records: "
+            f"{[r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]}"
+        )
+
+        # Trigger another expansion — warning must NOT repeat for the same entity.
+        caplog.clear()
+        switch._expand_light_groups()
+        await hass.async_block_till_done()
+
+        repeat_warnings = [
+            rec
+            for rec in caplog.records
+            if rec.levelno == logging.WARNING
+            and "expanding light group" in rec.getMessage().lower()
+            and "light.light_group" in rec.getMessage()
+        ]
+        assert not repeat_warnings, (
+            "Warning must fire at most once per entity — repeated expansion "
+            f"emitted {len(repeat_warnings)} additional warnings: "
+            f"{[r.getMessage() for r in repeat_warnings]}"
+        )
+
+
+async def test_expand_light_groups_false_does_not_warn(hass, cleanup, caplog):
+    """Flip-side of Gap 3: flag=False must be silent — no warning because the
+    user explicitly opted out of expansion. Noisy warnings here would be
+    annoying for the exact users who already fixed the footgun."""
+    import logging
+
+    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+
+    await setup_lights(hass, with_group=True)
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.adaptive_lighting"):
+        await setup_switch(
+            hass,
+            {
+                CONF_LIGHTS: ["light.light_group"],
+                CONF_EXPAND_LIGHT_GROUPS: False,
+            },
+        )
+        await hass.async_block_till_done()
+
+        unwanted = [
+            rec
+            for rec in caplog.records
+            if rec.levelno == logging.WARNING
+            and "expanding light group" in rec.getMessage().lower()
+        ]
+        assert not unwanted, (
+            "Warning must not fire when expand_light_groups=False — the user "
+            f"already opted out. Got: {[r.getMessage() for r in unwanted]}"
+        )
+
+
