@@ -2986,3 +2986,72 @@ async def test_detect_non_ha_changes_with_separate_turn_on_commands(hass):
     assert (
         light._brightness == manual_brightness
     ), f"AL overrode manual brightness {manual_brightness} with {al_brightness}"
+
+
+async def test_extra_state_attributes_includes_per_axis_siblings(hass):
+    """`extra_state_attributes` exposes per-axis manual-control siblings.
+
+    The legacy flat ``manual_control`` list stays as union semantics so existing
+    automations keep working. New ``manual_control_brightness`` and
+    ``manual_control_color`` siblings let consumers see which axis is locked.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+    manager = switch.manager
+
+    # No manual control: all three lists are empty.
+    state_attrs = switch.extra_state_attributes
+    assert state_attrs["manual_control"] == []
+    assert state_attrs["manual_control_brightness"] == []
+    assert state_attrs["manual_control_color"] == []
+
+    # Brightness-only locked on light_1.
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.BRIGHTNESS
+
+    state_attrs = switch.extra_state_attributes
+    assert state_attrs["manual_control"] == [ENTITY_LIGHT_1]
+    assert state_attrs["manual_control_brightness"] == [ENTITY_LIGHT_1]
+    assert state_attrs["manual_control_color"] == []
+
+    # Both axes locked on light_1, color-only locked on light_2.
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.ALL
+    manager.manual_control[ENTITY_LIGHT_2] = LightControlAttributes.COLOR
+
+    state_attrs = switch.extra_state_attributes
+    assert sorted(state_attrs["manual_control"]) == sorted(
+        [ENTITY_LIGHT_1, ENTITY_LIGHT_2],
+    )
+    assert state_attrs["manual_control_brightness"] == [ENTITY_LIGHT_1]
+    assert sorted(state_attrs["manual_control_color"]) == sorted(
+        [ENTITY_LIGHT_1, ENTITY_LIGHT_2],
+    )
+
+
+async def test_extra_state_attributes_manual_control_flat_list_is_union(hass):
+    """Legacy ``manual_control`` flat list is the union of per-axis flags.
+
+    Existing user automations read ``state_attributes.manual_control`` as a
+    flat list of light entity_ids. The new schema must preserve that semantics
+    so any-axis-locked still appears in the legacy key.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+    manager = switch.manager
+
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.BRIGHTNESS
+    manager.manual_control[ENTITY_LIGHT_2] = LightControlAttributes.COLOR
+
+    state_attrs = switch.extra_state_attributes
+    # Both lights appear in the legacy flat list (union semantics).
+    assert sorted(state_attrs["manual_control"]) == sorted(
+        [ENTITY_LIGHT_1, ENTITY_LIGHT_2],
+    )
+    # Per-axis siblings split them correctly.
+    assert state_attrs["manual_control_brightness"] == [ENTITY_LIGHT_1]
+    assert state_attrs["manual_control_color"] == [ENTITY_LIGHT_2]
+
+    # Clearing one axis on a light removes it from that sibling but keeps
+    # the union if the other axis stays locked.
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.ALL
+    state_attrs = switch.extra_state_attributes
+    assert ENTITY_LIGHT_1 in state_attrs["manual_control"]
+    assert ENTITY_LIGHT_1 in state_attrs["manual_control_brightness"]
+    assert ENTITY_LIGHT_1 in state_attrs["manual_control_color"]
