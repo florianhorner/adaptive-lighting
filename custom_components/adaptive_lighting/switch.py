@@ -866,6 +866,12 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         # Set in self._update_attrs_and_maybe_adapt_lights
         self._settings: dict[str, Any] = {}
 
+        # Lights for which the "no relevant attributes" skip has already been
+        # warned. Subsequent skips for the same light log at debug level only,
+        # to avoid log spam when a light's capabilities don't intersect the
+        # currently-adapting axes (e.g. brightness locked on a color-only bulb).
+        self._unsupported_skip_warned: set[str] = set()
+
         # Set and unset tracker in async_turn_on and async_turn_off
         self.remove_listeners: list[CALLBACK_TYPE] = []
         self.remove_interval: CALLBACK_TYPE = lambda: None
@@ -1169,6 +1175,11 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
             return
         self._state = True
         self.manager.reset(*self.lights)
+        # Re-arm the per-light skip warning so a configuration change between
+        # off and on (e.g. the user unlocks a color-only bulb's brightness
+        # axis and later re-locks it) produces a fresh warning instead of a
+        # silent debug.
+        self._unsupported_skip_warned.clear()
         await self._setup_listeners()
         if adapt_lights:
             await self._update_attrs_and_maybe_adapt_lights(
@@ -1277,13 +1288,29 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
 
         required_attrs = [ATTR_RGB_COLOR, ATTR_COLOR_TEMP_KELVIN, ATTR_BRIGHTNESS]
         if not any(attr in service_data for attr in required_attrs):
-            _LOGGER.debug(
-                "%s: Skipping adaptation of %s because no relevant attributes"
-                " are set in service_data: %s",
-                self._name,
-                light,
-                service_data,
-            )
+            if light not in self._unsupported_skip_warned:
+                self._unsupported_skip_warned.add(light)
+                _LOGGER.warning(
+                    "%s: Skipping adaptation of %s because none of its supported"
+                    " attributes intersect the currently-adapting axes."
+                    " Features=%s, adapt_brightness=%s, adapt_color=%s,"
+                    " service_data=%s. This warning logs once per light;"
+                    " subsequent skips will be debug-level.",
+                    self._name,
+                    light,
+                    sorted(features),
+                    adapt_brightness,
+                    adapt_color,
+                    service_data,
+                )
+            else:
+                _LOGGER.debug(
+                    "%s: Skipping adaptation of %s because no relevant attributes"
+                    " are set in service_data: %s",
+                    self._name,
+                    light,
+                    service_data,
+                )
             return None
 
         context = context or self.create_context("adapt_lights")

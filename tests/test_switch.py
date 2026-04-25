@@ -3055,3 +3055,80 @@ async def test_extra_state_attributes_manual_control_flat_list_is_union(hass):
     assert ENTITY_LIGHT_1 in state_attrs["manual_control"]
     assert ENTITY_LIGHT_1 in state_attrs["manual_control_brightness"]
     assert ENTITY_LIGHT_1 in state_attrs["manual_control_color"]
+
+
+async def test_unsupported_skip_warned_set_initialized(hass):
+    """``_unsupported_skip_warned`` exists as an empty set after init.
+
+    The set tracks which lights have already been warned about an empty
+    ``service_data`` skip so subsequent skips downgrade to debug. The set
+    must exist after ``__init__`` so the first-occurrence check is safe
+    even if no skip ever fires.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+    assert hasattr(switch, "_unsupported_skip_warned")
+    assert isinstance(switch._unsupported_skip_warned, set)
+    assert switch._unsupported_skip_warned == set()
+
+
+async def test_unsupported_skip_warns_once_per_light(hass, caplog):
+    """Empty ``service_data`` skip fires WARNING once per light, then DEBUG.
+
+    Reproduces the design-review concern: a user who locks brightness on a
+    color-only light hits the ``required_attrs`` skip silently. After this
+    fix, the first skip per entity logs at warning level so the user has
+    a signal; subsequent skips are debug-level to avoid log spam.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+
+    # Force the empty-service_data skip by mocking _supported_features to
+    # return a feature set that yields no relevant attributes (transition
+    # only — no brightness, no color, no color_temp). adapt_brightness and
+    # adapt_color stay True so we reach the line-1278 skip rather than the
+    # earlier "both False" skip.
+    with patch(
+        "homeassistant.components.adaptive_lighting.switch._supported_features",
+        return_value={"transition"},
+    ):
+        with caplog.at_level(logging.WARNING):
+            first = await switch.prepare_adaptation_data(
+                ENTITY_LIGHT_1,
+                transition=0,
+                adapt_brightness=True,
+                adapt_color=True,
+            )
+        assert first is None
+        warning_records = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.WARNING
+            and ENTITY_LIGHT_1 in r.getMessage()
+            and "intersect the currently-adapting axes" in r.getMessage()
+        ]
+        assert (
+            len(warning_records) == 1
+        ), f"expected one warning on first skip, got {len(warning_records)}"
+        assert ENTITY_LIGHT_1 in switch._unsupported_skip_warned
+
+        caplog.clear()
+
+        with caplog.at_level(logging.DEBUG):
+            second = await switch.prepare_adaptation_data(
+                ENTITY_LIGHT_1,
+                transition=0,
+                adapt_brightness=True,
+                adapt_color=True,
+            )
+        assert second is None
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert (
+            warning_records == []
+        ), f"expected no warnings on second skip, got {warning_records}"
+        debug_records = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.DEBUG
+            and ENTITY_LIGHT_1 in r.getMessage()
+            and "no relevant attributes" in r.getMessage()
+        ]
+        assert len(debug_records) == 1
