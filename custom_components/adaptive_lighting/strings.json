@@ -146,7 +146,7 @@
           "name": "lights"
         },
         "manual_control": {
-          "description": "Whether to add (\"true\") or remove (\"false\") all adapted attributes of the light from the \"manual_control\" list, or the name of an attribute for selective addition. 🔒",
+          "description": "Pause adaptation for both axes, only brightness, only color, or resume adaptation entirely. Accepts boolean for legacy compatibility (true=pause both, false=resume).",
           "name": "manual_control"
         }
       }
@@ -275,6 +275,16 @@
           "description": "Automatically reset the manual control after a number of seconds. Set to 0 to disable. ⏲️",
           "name": "autoreset_control_seconds"
         }
+      }
+    }
+  },
+  "selector": {
+    "manual_control_axis": {
+      "options": {
+        "true": "Pause both (lock brightness and color)",
+        "false": "Resume adaptation (unlock both)",
+        "brightness": "Pause brightness only (color still adapts)",
+        "color": "Pause color only (brightness still adapts)"
       }
     }
   }
