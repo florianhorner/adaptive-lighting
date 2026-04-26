@@ -1,7 +1,9 @@
 """Constants for the Adaptive Lighting integration."""
 
+import datetime
+from dataclasses import dataclass
 from datetime import timedelta
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 import homeassistant.helpers.config_validation as cv
@@ -16,6 +18,49 @@ ICON_COLOR_TEMP = "mdi:sun-thermometer"
 ICON_SLEEP = "mdi:sleep"
 
 DOMAIN = "adaptive_lighting"
+
+SIGNAL_STATUS_UPDATED = f"{DOMAIN}_status_updated"
+
+
+class LightStatus(StrEnum):
+    """Status of the adaptive lighting for a light."""
+
+    INACTIVE = "inactive"
+    ACTIVE = "active"
+    MANUAL_OVERRIDE = "manual_override"
+    BLOCKED = "blocked"
+    ERROR = "error"
+
+
+STATUS_PRIORITY: dict[LightStatus, int] = {
+    LightStatus.ERROR: 5,
+    LightStatus.MANUAL_OVERRIDE: 4,
+    LightStatus.ACTIVE: 2,
+    LightStatus.BLOCKED: 1,
+    LightStatus.INACTIVE: 0,
+}
+
+
+ATTR_STATUS = "status"
+ATTR_STATUS_SINCE = "status_since"
+ATTR_STATUS_REASON = "status_reason"
+ATTR_STATUS_SOURCE = "status_source"
+ATTR_STATUS_PROFILES = "status_profiles"
+ATTR_STATUS_TARGET = "status_target"
+ATTR_STATUS_MANUAL_CONTROL = "status_manual_control"
+ATTR_STATUS_OVERRIDE_UNTIL = "status_override_until"
+ATTR_STATUS_LAST_ERROR = "status_last_error"
+
+
+@dataclass
+class LightStatusInfo:
+    """Track adaptive lighting status for a light and source."""
+
+    status: str
+    since: datetime.datetime | None = None
+    reason: str | None = None
+    source: str | None = None
+    last_error: str | None = None
 
 
 class TakeOverControlMode(Enum):
@@ -54,6 +99,14 @@ CONF_INCLUDE_CONFIG_IN_ATTRIBUTES, DEFAULT_INCLUDE_CONFIG_IN_ATTRIBUTES = (
 DOCS[CONF_INCLUDE_CONFIG_IN_ATTRIBUTES] = (
     "Show all options as attributes on the switch in "
     "Home Assistant when set to `true`. 📝"
+)
+
+CONF_ENABLE_DIAGNOSTIC_SENSORS, DEFAULT_ENABLE_DIAGNOSTIC_SENSORS = (
+    "enable_diagnostic_sensors",
+    False,
+)
+DOCS[CONF_ENABLE_DIAGNOSTIC_SENSORS] = (
+    "Expose per-light Adaptive Lighting status sensors when set to `true`. 🧭"
 )
 
 CONF_INITIAL_TRANSITION, DEFAULT_INITIAL_TRANSITION = "initial_transition", 1
@@ -116,7 +169,9 @@ DOCS[CONF_SEPARATE_TURN_ON_COMMANDS] = (
 )
 
 CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS = "sleep_brightness", 1
-DOCS[CONF_SLEEP_BRIGHTNESS] = "Brightness percentage of lights in sleep mode. 😴"
+DOCS[CONF_SLEEP_BRIGHTNESS] = (
+    "Brightness percentage of lights in sleep mode. Set to 0 to prevent lights from turning on. 😴"
+)
 
 CONF_SLEEP_COLOR_TEMP, DEFAULT_SLEEP_COLOR_TEMP = "sleep_color_temp", 1000
 DOCS[CONF_SLEEP_COLOR_TEMP] = (
@@ -272,6 +327,13 @@ DOCS[CONF_MULTI_LIGHT_INTERCEPT] = (
     "Requires `intercept` to be enabled."
 )
 
+CONF_EXPAND_LIGHT_GROUPS, DEFAULT_EXPAND_LIGHT_GROUPS = "expand_light_groups", True
+DOCS[CONF_EXPAND_LIGHT_GROUPS] = (
+    "Expand light groups to their individual member entities (`true`, default). "
+    "Set to `false` to send adaptation commands to the group entity directly "
+    "instead of its members."
+)
+
 SLEEP_MODE_SWITCH = "sleep_mode_switch"
 ADAPT_COLOR_SWITCH = "adapt_color_switch"
 ADAPT_BRIGHTNESS_SWITCH = "adapt_brightness_switch"
@@ -332,7 +394,7 @@ VALIDATION_TUPLES: list[tuple[str, Any, Any]] = [
     (CONF_MIN_COLOR_TEMP, DEFAULT_MIN_COLOR_TEMP, int_between(1000, 10000)),
     (CONF_MAX_COLOR_TEMP, DEFAULT_MAX_COLOR_TEMP, int_between(1000, 10000)),
     (CONF_PREFER_RGB_COLOR, DEFAULT_PREFER_RGB_COLOR, bool),
-    (CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS, int_between(1, 100)),
+    (CONF_SLEEP_BRIGHTNESS, DEFAULT_SLEEP_BRIGHTNESS, int_between(0, 100)),
     (
         CONF_SLEEP_RGB_OR_COLOR_TEMP,
         DEFAULT_SLEEP_RGB_OR_COLOR_TEMP,
@@ -407,6 +469,8 @@ VALIDATION_TUPLES: list[tuple[str, Any, Any]] = [
     (CONF_INTERCEPT, DEFAULT_INTERCEPT, bool),
     (CONF_MULTI_LIGHT_INTERCEPT, DEFAULT_MULTI_LIGHT_INTERCEPT, bool),
     (CONF_INCLUDE_CONFIG_IN_ATTRIBUTES, DEFAULT_INCLUDE_CONFIG_IN_ATTRIBUTES, bool),
+    (CONF_ENABLE_DIAGNOSTIC_SENSORS, DEFAULT_ENABLE_DIAGNOSTIC_SENSORS, bool),
+    (CONF_EXPAND_LIGHT_GROUPS, DEFAULT_EXPAND_LIGHT_GROUPS, bool),
 ]
 
 
@@ -478,6 +542,102 @@ def apply_service_schema(initial_transition: int = 1) -> vol.Schema:
         },
     )
 
+
+CONF_ROOM_PRESET = "room_preset"
+
+# Mapping of step names to their config option keys.
+# Used by OptionsFlowHandler to partition VALIDATION_TUPLES across steps.
+STEP_OPTIONS: dict[str, list[str]] = {
+    "init": [
+        CONF_LIGHTS,
+        CONF_MIN_BRIGHTNESS,
+        CONF_MAX_BRIGHTNESS,
+        CONF_MIN_COLOR_TEMP,
+        CONF_MAX_COLOR_TEMP,
+        CONF_PREFER_RGB_COLOR,
+        CONF_TRANSITION,
+    ],
+    "sleep": [
+        CONF_SLEEP_BRIGHTNESS,
+        CONF_SLEEP_RGB_OR_COLOR_TEMP,
+        CONF_SLEEP_COLOR_TEMP,
+        CONF_SLEEP_RGB_COLOR,
+        CONF_SLEEP_TRANSITION,
+        CONF_ADAPT_UNTIL_SLEEP,
+    ],
+    "sun_timing": [
+        CONF_SUNRISE_TIME,
+        CONF_MIN_SUNRISE_TIME,
+        CONF_MAX_SUNRISE_TIME,
+        CONF_SUNRISE_OFFSET,
+        CONF_SUNSET_TIME,
+        CONF_MIN_SUNSET_TIME,
+        CONF_MAX_SUNSET_TIME,
+        CONF_SUNSET_OFFSET,
+        CONF_INTERVAL,
+        CONF_INITIAL_TRANSITION,
+        CONF_ADAPT_DELAY,
+        CONF_BRIGHTNESS_MODE,
+        CONF_BRIGHTNESS_MODE_TIME_DARK,
+        CONF_BRIGHTNESS_MODE_TIME_LIGHT,
+    ],
+    "manual_control": [
+        CONF_TAKE_OVER_CONTROL,
+        CONF_TAKE_OVER_CONTROL_MODE,
+        CONF_DETECT_NON_HA_CHANGES,
+        CONF_AUTORESET_CONTROL,
+        CONF_ONLY_ONCE,
+        CONF_ADAPT_ONLY_ON_BARE_TURN_ON,
+        CONF_INTERCEPT,
+        CONF_MULTI_LIGHT_INTERCEPT,
+        CONF_SKIP_REDUNDANT_COMMANDS,
+    ],
+    "workarounds": [
+        CONF_SEPARATE_TURN_ON_COMMANDS,
+        CONF_SEND_SPLIT_DELAY,
+        CONF_INCLUDE_CONFIG_IN_ATTRIBUTES,
+        CONF_ENABLE_DIAGNOSTIC_SENSORS,
+        CONF_EXPAND_LIGHT_GROUPS,
+    ],
+}
+
+ROOM_PRESETS: dict[str, dict[str, Any]] = {
+    "custom": {},
+    "bedroom": {
+        CONF_MIN_BRIGHTNESS: 1,
+        CONF_MAX_BRIGHTNESS: 80,
+        CONF_MIN_COLOR_TEMP: 2000,
+        CONF_MAX_COLOR_TEMP: 4000,
+        CONF_SLEEP_BRIGHTNESS: 1,
+        CONF_SLEEP_COLOR_TEMP: 1000,
+        CONF_ADAPT_UNTIL_SLEEP: True,
+        CONF_TRANSITION: 60,
+    },
+    "office": {
+        CONF_MIN_BRIGHTNESS: 40,
+        CONF_MAX_BRIGHTNESS: 100,
+        CONF_MIN_COLOR_TEMP: 3000,
+        CONF_MAX_COLOR_TEMP: 5500,
+        CONF_TRANSITION: 45,
+    },
+    "living_room": {
+        CONF_MIN_BRIGHTNESS: 20,
+        CONF_MAX_BRIGHTNESS: 100,
+        CONF_MIN_COLOR_TEMP: 2200,
+        CONF_MAX_COLOR_TEMP: 5000,
+        CONF_TRANSITION: 45,
+    },
+    "nursery": {
+        CONF_MIN_BRIGHTNESS: 1,
+        CONF_MAX_BRIGHTNESS: 60,
+        CONF_MIN_COLOR_TEMP: 2000,
+        CONF_MAX_COLOR_TEMP: 3500,
+        CONF_SLEEP_BRIGHTNESS: 1,
+        CONF_SLEEP_COLOR_TEMP: 1000,
+        CONF_ADAPT_UNTIL_SLEEP: True,
+        CONF_TRANSITION: 90,
+    },
+}
 
 SET_MANUAL_CONTROL_SCHEMA = vol.Schema(
     {
