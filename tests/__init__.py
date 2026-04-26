@@ -1,0 +1,1 @@
+"""Adaptive Lighting test suite."""

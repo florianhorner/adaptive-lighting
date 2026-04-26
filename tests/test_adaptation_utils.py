@@ -80,36 +80,45 @@ async def test_split_service_call_data(input_data, expected_data_list):
     assert _split_service_call_data(input_data) == expected_data_list
 
 
-# Tests for the falsy-value behavioral change in _split_service_call_data.
-# Previously `is not None` was used; now truthy check (`if service_data.get(attribute)`)
-# is used. This means falsy-but-non-None values (0, False, [], "") are excluded.
+# Behavior of _split_service_call_data with falsy-but-non-None values
+# (0, False, [], "").  Upstream PR #1460 changed the check from
+# `if service_data.get(attribute)` (truthy) to `is not None` so that
+# legitimate values like brightness=0 (sleep mode) and hs_color=(0, 0)
+# are preserved instead of silently dropped.
 
 
 @pytest.mark.parametrize(
     ("input_data", "expected_data_list"),
     [
         (
-            # brightness=0 is falsy → excluded under the truthy check
+            # brightness=0 is preserved (legit sleep_brightness=0 value)
             {ATTR_BRIGHTNESS: 0},
-            [],
+            [{ATTR_BRIGHTNESS: 0}],
         ),
         (
-            # brightness=1 is truthy → included
+            # brightness=1 is preserved (always was)
             {ATTR_BRIGHTNESS: 1},
             [{ATTR_BRIGHTNESS: 1}],
         ),
         (
-            # brightness=0 with color: brightness dropped, color kept
+            # brightness=0 with color: both preserved on their own service call
             {ATTR_BRIGHTNESS: 0, ATTR_COLOR_TEMP_KELVIN: 3500},
-            [{ATTR_COLOR_TEMP_KELVIN: 3500}],
+            [{ATTR_BRIGHTNESS: 0}, {ATTR_COLOR_TEMP_KELVIN: 3500}],
         ),
         (
-            # brightness=0 with entity_id: brightness dropped, entity_id in common
-            {ATTR_ENTITY_ID: "light.test", ATTR_BRIGHTNESS: 0, ATTR_COLOR_TEMP_KELVIN: 4000},
-            [{ATTR_ENTITY_ID: "light.test", ATTR_COLOR_TEMP_KELVIN: 4000}],
+            # brightness=0 with entity_id: both preserved
+            {
+                ATTR_ENTITY_ID: "light.test",
+                ATTR_BRIGHTNESS: 0,
+                ATTR_COLOR_TEMP_KELVIN: 4000,
+            },
+            [
+                {ATTR_ENTITY_ID: "light.test", ATTR_BRIGHTNESS: 0},
+                {ATTR_ENTITY_ID: "light.test", ATTR_COLOR_TEMP_KELVIN: 4000},
+            ],
         ),
         (
-            # hs_color=(0, 0) is a truthy tuple (non-empty) → included
+            # hs_color=(0, 0) is preserved (always was — non-empty tuple)
             {ATTR_HS_COLOR: (0, 0)},
             [{ATTR_HS_COLOR: (0, 0)}],
         ),
@@ -123,20 +132,21 @@ async def test_split_service_call_data(input_data, expected_data_list):
         ),
     ],
     ids=[
-        "brightness=0 is falsy and excluded",
-        "brightness=1 is truthy and included",
-        "brightness=0 dropped but color kept",
-        "brightness=0 dropped with entity_id and color",
-        "hs_color=(0,0) tuple is truthy and included",
+        "brightness=0 is preserved",
+        "brightness=1 is preserved",
+        "brightness=0 with color preserves both",
+        "brightness=0 with entity_id preserves both",
+        "hs_color=(0,0) tuple is preserved",
         "brightness=255 with transition=0 split correctly",
     ],
 )
 async def test_split_service_call_data_falsy_values(input_data, expected_data_list):
-    """Test that falsy attribute values are excluded after truthy-check change.
+    """Falsy-but-non-None values are preserved per upstream PR #1460.
 
-    Regression tests for the behavioral change from `is not None` to truthy
-    check in _split_service_call_data.  Values like 0 and False are now
-    treated the same as missing values.
+    Regression coverage for the change from `if service_data.get(attribute)`
+    (truthy) to `is not None`. Pre-#1460 dropped brightness=0 silently;
+    post-#1460 preserves it so sleep_brightness=0 (lights-off-at-sleep)
+    works correctly with `separate_turn_on_commands=True`.
     """
     assert _split_service_call_data(input_data) == expected_data_list
 

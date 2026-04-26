@@ -1,7 +1,5 @@
 """Tests for Adaptive Lighting integration."""
 
-import pytest
-
 from homeassistant.components import adaptive_lighting
 from homeassistant.components.adaptive_lighting.const import (
     DEFAULT_NAME,
@@ -87,9 +85,9 @@ async def test_sensor_platform_not_loaded(hass):
 
     sensor_entities = hass.states.async_entity_ids("sensor")
     al_sensors = [e for e in sensor_entities if "adaptive_lighting" in e]
-    assert al_sensors == [], (
-        f"No adaptive_lighting sensor entities should exist, found: {al_sensors}"
-    )
+    assert (
+        al_sensors == []
+    ), f"No adaptive_lighting sensor entities should exist, found: {al_sensors}"
 
 
 async def test_no_attr_adaptive_lighting_manager_in_domain_data_on_entry_setup(hass):
