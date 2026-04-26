@@ -3002,6 +3002,152 @@ async def test_detect_non_ha_changes_with_separate_turn_on_commands(hass):
     ), f"AL overrode manual brightness {manual_brightness} with {al_brightness}"
 
 
+async def test_extra_state_attributes_includes_per_axis_siblings(hass):
+    """`extra_state_attributes` exposes per-axis manual-control siblings.
+
+    The legacy flat ``manual_control`` list stays as union semantics so existing
+    automations keep working. New ``manual_control_brightness`` and
+    ``manual_control_color`` siblings let consumers see which axis is locked.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+    manager = switch.manager
+
+    # No manual control: all three lists are empty.
+    state_attrs = switch.extra_state_attributes
+    assert state_attrs["manual_control"] == []
+    assert state_attrs["manual_control_brightness"] == []
+    assert state_attrs["manual_control_color"] == []
+
+    # Brightness-only locked on light_1.
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.BRIGHTNESS
+
+    state_attrs = switch.extra_state_attributes
+    assert state_attrs["manual_control"] == [ENTITY_LIGHT_1]
+    assert state_attrs["manual_control_brightness"] == [ENTITY_LIGHT_1]
+    assert state_attrs["manual_control_color"] == []
+
+    # Both axes locked on light_1, color-only locked on light_2.
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.ALL
+    manager.manual_control[ENTITY_LIGHT_2] = LightControlAttributes.COLOR
+
+    state_attrs = switch.extra_state_attributes
+    assert sorted(state_attrs["manual_control"]) == sorted(
+        [ENTITY_LIGHT_1, ENTITY_LIGHT_2],
+    )
+    assert state_attrs["manual_control_brightness"] == [ENTITY_LIGHT_1]
+    assert sorted(state_attrs["manual_control_color"]) == sorted(
+        [ENTITY_LIGHT_1, ENTITY_LIGHT_2],
+    )
+
+
+async def test_extra_state_attributes_manual_control_flat_list_is_union(hass):
+    """Legacy ``manual_control`` flat list is the union of per-axis flags.
+
+    Existing user automations read ``state_attributes.manual_control`` as a
+    flat list of light entity_ids. The new schema must preserve that semantics
+    so any-axis-locked still appears in the legacy key.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+    manager = switch.manager
+
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.BRIGHTNESS
+    manager.manual_control[ENTITY_LIGHT_2] = LightControlAttributes.COLOR
+
+    state_attrs = switch.extra_state_attributes
+    # Both lights appear in the legacy flat list (union semantics).
+    assert sorted(state_attrs["manual_control"]) == sorted(
+        [ENTITY_LIGHT_1, ENTITY_LIGHT_2],
+    )
+    # Per-axis siblings split them correctly.
+    assert state_attrs["manual_control_brightness"] == [ENTITY_LIGHT_1]
+    assert state_attrs["manual_control_color"] == [ENTITY_LIGHT_2]
+
+    # Clearing one axis on a light removes it from that sibling but keeps
+    # the union if the other axis stays locked.
+    manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.ALL
+    state_attrs = switch.extra_state_attributes
+    assert ENTITY_LIGHT_1 in state_attrs["manual_control"]
+    assert ENTITY_LIGHT_1 in state_attrs["manual_control_brightness"]
+    assert ENTITY_LIGHT_1 in state_attrs["manual_control_color"]
+
+
+async def test_unsupported_skip_warned_set_initialized(hass):
+    """``_unsupported_skip_warned`` exists as an empty set after init.
+
+    The set tracks which lights have already been warned about an empty
+    ``service_data`` skip so subsequent skips downgrade to debug. The set
+    must exist after ``__init__`` so the first-occurrence check is safe
+    even if no skip ever fires.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+    assert hasattr(switch, "_unsupported_skip_warned")
+    assert isinstance(switch._unsupported_skip_warned, set)
+    assert switch._unsupported_skip_warned == set()
+
+
+async def test_unsupported_skip_warns_once_per_light(hass, caplog):
+    """Empty ``service_data`` skip fires WARNING once per light, then DEBUG.
+
+    Reproduces the design-review concern: a user who locks brightness on a
+    color-only light hits the ``required_attrs`` skip silently. After this
+    fix, the first skip per entity logs at warning level so the user has
+    a signal; subsequent skips are debug-level to avoid log spam.
+    """
+    switch, _ = await setup_lights_and_switch(hass)
+
+    # Force the empty-service_data skip by mocking _supported_features to
+    # return a feature set that yields no relevant attributes (transition
+    # only — no brightness, no color, no color_temp). adapt_brightness and
+    # adapt_color stay True so we reach the line-1278 skip rather than the
+    # earlier "both False" skip.
+    with patch(
+        "homeassistant.components.adaptive_lighting.switch._supported_features",
+        return_value={"transition"},
+    ):
+        with caplog.at_level(logging.WARNING):
+            first = await switch.prepare_adaptation_data(
+                ENTITY_LIGHT_1,
+                transition=0,
+                adapt_brightness=True,
+                adapt_color=True,
+            )
+        assert first is None
+        warning_records = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.WARNING
+            and ENTITY_LIGHT_1 in r.getMessage()
+            and "intersect the currently-adapting axes" in r.getMessage()
+        ]
+        assert (
+            len(warning_records) == 1
+        ), f"expected one warning on first skip, got {len(warning_records)}"
+        assert ENTITY_LIGHT_1 in switch._unsupported_skip_warned
+
+        caplog.clear()
+
+        with caplog.at_level(logging.DEBUG):
+            second = await switch.prepare_adaptation_data(
+                ENTITY_LIGHT_1,
+                transition=0,
+                adapt_brightness=True,
+                adapt_color=True,
+            )
+        assert second is None
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert (
+            warning_records == []
+        ), f"expected no warnings on second skip, got {warning_records}"
+        debug_records = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.DEBUG
+            and ENTITY_LIGHT_1 in r.getMessage()
+            and "no relevant attributes" in r.getMessage()
+        ]
+        assert len(debug_records) == 1
+
+
 @pytest.mark.xfail(
     reason="Regression test from upstream PR #1379 — underlying bug not yet fixed",
     strict=False,
@@ -3157,7 +3303,8 @@ async def test_separate_turn_on_commands_respects_light_off_state(hass):
 
 def test_expand_light_groups_const_wiring():
     """Option must be fully wired: default True, in VALIDATION_TUPLES, in
-    STEP_OPTIONS["workarounds"] (so the 5-step UI exposes it), and documented."""
+    STEP_OPTIONS["workarounds"] (so the 5-step UI exposes it), and documented.
+    """
     from homeassistant.components.adaptive_lighting.const import (
         CONF_EXPAND_LIGHT_GROUPS,
         DEFAULT_EXPAND_LIGHT_GROUPS,
@@ -3166,18 +3313,18 @@ def test_expand_light_groups_const_wiring():
         VALIDATION_TUPLES,
     )
 
-    assert DEFAULT_EXPAND_LIGHT_GROUPS is True, (
-        "Default must be True to preserve legacy behavior for existing users"
-    )
+    assert (
+        DEFAULT_EXPAND_LIGHT_GROUPS is True
+    ), "Default must be True to preserve legacy behavior for existing users"
 
     entries = {k: (default, validator) for k, default, validator in VALIDATION_TUPLES}
     assert CONF_EXPAND_LIGHT_GROUPS in entries
     assert entries[CONF_EXPAND_LIGHT_GROUPS][0] is True
     assert entries[CONF_EXPAND_LIGHT_GROUPS][1] is bool
 
-    assert CONF_EXPAND_LIGHT_GROUPS in STEP_OPTIONS["workarounds"], (
-        "Option must live in workarounds step so users can toggle it in the UI"
-    )
+    assert (
+        CONF_EXPAND_LIGHT_GROUPS in STEP_OPTIONS["workarounds"]
+    ), "Option must live in workarounds step so users can toggle it in the UI"
 
     assert CONF_EXPAND_LIGHT_GROUPS in DOCS
     assert DOCS[CONF_EXPAND_LIGHT_GROUPS], "User-facing description must not be empty"
@@ -3190,7 +3337,9 @@ async def test_expand_light_groups_false_keeps_group_entity(hass, cleanup):
     Lightener, Hue room — handles fan-out) instead of bypassing it with
     per-member turn_on calls.
     """
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     lights = await setup_lights(hass, with_group=True)
     non_group_entity_ids = [light.entity_id for light in lights[:3]]
@@ -3213,7 +3362,9 @@ async def test_expand_light_groups_false_keeps_group_entity(hass, cleanup):
 
 async def test_expand_light_groups_true_expands_to_members(hass, cleanup):
     """flag=True (default): manager.lights holds members, not the group."""
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     lights = await setup_lights(hass, with_group=True)
     entity_ids = [light.entity_id for light in lights[:3]]
@@ -3233,8 +3384,11 @@ async def test_expand_light_groups_true_expands_to_members(hass, cleanup):
 
 async def test_expand_light_groups_false_non_group_unaffected(hass, cleanup):
     """Non-group lights: flag=False is a no-op. Protects existing users who
-    flip the flag on a switch that happens to not contain any light groups."""
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    flip the flag on a switch that happens to not contain any light groups.
+    """
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     lights = await setup_lights(hass)  # no group
     entity_ids = [light.entity_id for light in lights]
@@ -3257,7 +3411,9 @@ async def test_expand_light_groups_false_group_turn_on_reaches_group(hass, clean
     members). This is the whole point of the feature — without it the
     Lightener / Hue-room use case is broken.
     """
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     await setup_lights(hass, with_group=True)
     _, switch = await setup_switch(
@@ -3321,7 +3477,9 @@ async def test_expand_light_groups_false_adapt_cycle_dispatches_to_group(
     which entity_id does the adapt cycle choose to adapt? That's the
     Lightener-critical semantic — dispatch shape, not service-call shape.
     """
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     await setup_lights(hass, with_group=True)
     _, switch = await setup_switch(
@@ -3391,7 +3549,9 @@ async def test_expand_light_groups_false_no_false_manual_control(hass, cleanup):
     controlled and the next cycle would skip adaptation entirely — death
     spiral with curves that eventually never fire.
     """
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     await setup_lights(hass, with_group=True)
     _, switch = await setup_switch(
@@ -3440,7 +3600,9 @@ async def test_expand_light_groups_true_emits_warning_once(hass, cleanup, caplog
     """
     import logging
 
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     await setup_lights(hass, with_group=True)
 
@@ -3489,10 +3651,13 @@ async def test_expand_light_groups_true_emits_warning_once(hass, cleanup, caplog
 async def test_expand_light_groups_false_does_not_warn(hass, cleanup, caplog):
     """Flip-side of Gap 3: flag=False must be silent — no warning because the
     user explicitly opted out of expansion. Noisy warnings here would be
-    annoying for the exact users who already fixed the footgun."""
+    annoying for the exact users who already fixed the footgun.
+    """
     import logging
 
-    from homeassistant.components.adaptive_lighting.const import CONF_EXPAND_LIGHT_GROUPS
+    from homeassistant.components.adaptive_lighting.const import (
+        CONF_EXPAND_LIGHT_GROUPS,
+    )
 
     await setup_lights(hass, with_group=True)
 
@@ -3516,5 +3681,3 @@ async def test_expand_light_groups_false_does_not_warn(hass, cleanup, caplog):
             "Warning must not fire when expand_light_groups=False — the user "
             f"already opted out. Got: {[r.getMessage() for r in unwanted]}"
         )
-
-

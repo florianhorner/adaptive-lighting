@@ -57,11 +57,18 @@ set_manual_control:
           domain: light
           multiple: true
     manual_control:
-      description: Whether to add ("true") or remove ("false") all adapted attributes of the light from the "manual_control" list, or the name of an attribute for selective addition. 🔒
-      example: true
+      description: Pause adaptation for both axes, only brightness, only color, or resume adaptation entirely. Accepts boolean for legacy compatibility (true=pause both, false=resume).
+      example: brightness
       default: true
       selector:
-        boolean: null
+        select:
+          translation_key: manual_control_axis
+          options:
+          - 'true'
+          - 'false'
+          - brightness
+          - color
+          custom_value: false
 change_switch_settings:
   description: Change any settings you'd like in the switch. All options here are the same as in the config flow.
   fields:

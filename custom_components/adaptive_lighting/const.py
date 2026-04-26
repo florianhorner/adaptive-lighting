@@ -366,9 +366,11 @@ DOCS_MANUAL_CONTROL = {
     "light as being `manually controlled`. 📝",
     CONF_LIGHTS: "entity_id(s) of lights, if not specified, all lights in the "
     "switch are selected. 💡",
-    CONF_MANUAL_CONTROL: 'Whether to add ("true") or remove ("false") all '
-    'adapted attributes of the light from the "manual_control" list, or the '
-    "name of an attribute for selective addition. 🔒",
+    CONF_MANUAL_CONTROL: (
+        "Pause adaptation for both axes, only brightness, only color, or "
+        "resume adaptation entirely. Accepts boolean for legacy compatibility "
+        "(true=pause both, false=resume)."
+    ),
 }
 
 DOCS_APPLY = {

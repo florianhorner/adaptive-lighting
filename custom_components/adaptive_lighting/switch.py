@@ -879,6 +879,12 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         # Set in self._update_attrs_and_maybe_adapt_lights
         self._settings: dict[str, Any] = {}
 
+        # Lights for which the "no relevant attributes" skip has already been
+        # warned. Subsequent skips for the same light log at debug level only,
+        # to avoid log spam when a light's capabilities don't intersect the
+        # currently-adapting axes (e.g. brightness locked on a color-only bulb).
+        self._unsupported_skip_warned: set[str] = set()
+
         # Set and unset tracker in async_turn_on and async_turn_off
         self.remove_listeners: list[CALLBACK_TYPE] = []
         self.remove_interval: CALLBACK_TYPE = lambda: None
@@ -1162,9 +1168,21 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
             for key in self._settings:
                 extra_state_attributes[key] = None
             return extra_state_attributes
-        extra_state_attributes["manual_control"] = [
-            light for light in self.lights if self.manager.manual_control.get(light)
-        ]
+        manual_control_any: list[str] = []
+        manual_control_brightness: list[str] = []
+        manual_control_color: list[str] = []
+        for light in self.lights:
+            flag = self.manager.get_manual_control_attributes(light)
+            if not flag:
+                continue
+            manual_control_any.append(light)
+            if LightControlAttributes.BRIGHTNESS in flag:
+                manual_control_brightness.append(light)
+            if LightControlAttributes.COLOR in flag:
+                manual_control_color.append(light)
+        extra_state_attributes["manual_control"] = manual_control_any
+        extra_state_attributes["manual_control_brightness"] = manual_control_brightness
+        extra_state_attributes["manual_control_color"] = manual_control_color
         extra_state_attributes.update(self._settings)
         timers = self.manager.auto_reset_manual_control_timers
         extra_state_attributes["autoreset_time_remaining"] = {
@@ -1198,6 +1216,11 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
             return
         self._state = True
         self.manager.reset(*self.lights)
+        # Re-arm the per-light skip warning so a configuration change between
+        # off and on (e.g. the user unlocks a color-only bulb's brightness
+        # axis and later re-locks it) produces a fresh warning instead of a
+        # silent debug.
+        self._unsupported_skip_warned.clear()
         await self._setup_listeners()
         if adapt_lights:
             await self._update_attrs_and_maybe_adapt_lights(
@@ -1306,13 +1329,29 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
 
         required_attrs = [ATTR_RGB_COLOR, ATTR_COLOR_TEMP_KELVIN, ATTR_BRIGHTNESS]
         if not any(attr in service_data for attr in required_attrs):
-            _LOGGER.debug(
-                "%s: Skipping adaptation of %s because no relevant attributes"
-                " are set in service_data: %s",
-                self._name,
-                light,
-                service_data,
-            )
+            if light not in self._unsupported_skip_warned:
+                self._unsupported_skip_warned.add(light)
+                _LOGGER.warning(
+                    "%s: Skipping adaptation of %s because none of its supported"
+                    " attributes intersect the currently-adapting axes."
+                    " Features=%s, adapt_brightness=%s, adapt_color=%s,"
+                    " service_data=%s. This warning logs once per light;"
+                    " subsequent skips will be debug-level.",
+                    self._name,
+                    light,
+                    sorted(features),
+                    adapt_brightness,
+                    adapt_color,
+                    service_data,
+                )
+            else:
+                _LOGGER.debug(
+                    "%s: Skipping adaptation of %s because no relevant attributes"
+                    " are set in service_data: %s",
+                    self._name,
+                    light,
+                    service_data,
+                )
             return None
 
         context = context or self.create_context("adapt_lights")
