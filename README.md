@@ -24,6 +24,8 @@ Download and install through [HACS (Home Assistant Community Store)](https://hac
 3. Search "Adaptive Lighting" → Download
 4. Restart Home Assistant
 
+> **Versioning:** This fork uses its own version track. `v1.31.0` is the upstream commit we forked from. Fork versions advance independently — `florianhorner v1.32.0` and any future `basnijholt v1.32.0` will not be the same code. For upstream's release notes, see [basnijholt/adaptive-lighting/releases](https://github.com/basnijholt/adaptive-lighting/releases).
+
 By automatically adapting the settings of your lights throughout the day, Adaptive Lighting helps maintain your natural circadian rhythm 😴, which can lead to improved sleep, mood, and overall well-being. Experience cooler color temperatures at noon, gradually transitioning to warmer colors at sunset and sunrise.
 
 In addition to its regular mode, Adaptive Lighting also offers a "sleep mode" 🌜 which sets your lights to minimal brightness and a very warm color, perfect for winding down at night.
