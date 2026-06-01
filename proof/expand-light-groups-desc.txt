@@ -1,0 +1,9 @@
+STEP_OPTIONS['workarounds'] = ['separate_turn_on_commands', 'send_split_delay', 'include_config_in_attributes', 'enable_diagnostic_sensors', 'expand_light_groups']
+strings.json: data_description keys = ['enable_diagnostic_sensors', 'expand_light_groups', 'include_config_in_attributes', 'send_split_delay', 'separate_turn_on_commands']
+en.json: data_description keys = ['enable_diagnostic_sensors', 'expand_light_groups', 'include_config_in_attributes', 'send_split_delay', 'separate_turn_on_commands']
+
+expand_light_groups description:
+   Expands light groups into their individual member lights and adapts each one separately (default). Disable to send adaptation commands to the group entity directly instead — useful for hardware or hub groups that should be controlled as a single unit.
+
+JSON validity: both files parsed via json.loads OK
+PASS: every workarounds option has a description; strings.json and en.json agree.
