@@ -2,15 +2,13 @@ name: Validate
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-  schedule:
-    - cron: "0 0 * * *"
 
 jobs:
   validate_hacs:
     runs-on: "ubuntu-latest"
-    if: github.repository == 'basnijholt/adaptive-lighting' # Don't run on forked repos
+    if: github.repository == 'florianhorner/adaptive-lighting'
     steps:
       - uses: "actions/checkout@v6"
       - name: HACS validation
