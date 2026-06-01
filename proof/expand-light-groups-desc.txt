@@ -1,0 +1,12 @@
+JSON valid: custom_components/adaptive_lighting/strings.json
+JSON valid: custom_components/adaptive_lighting/translations/en.json
+
+STEP_OPTIONS['workarounds'] resolved keys: ['separate_turn_on_commands', 'send_split_delay', 'include_config_in_attributes', 'enable_diagnostic_sensors', 'expand_light_groups']
+
+strings.json workarounds.data keys:             ['separate_turn_on_commands', 'send_split_delay', 'include_config_in_attributes', 'enable_diagnostic_sensors', 'expand_light_groups']
+strings.json workarounds.data_description keys: ['separate_turn_on_commands', 'send_split_delay', 'include_config_in_attributes', 'enable_diagnostic_sensors', 'expand_light_groups']
+en.json workarounds.data keys:                  ['separate_turn_on_commands', 'send_split_delay', 'include_config_in_attributes', 'enable_diagnostic_sensors', 'expand_light_groups']
+en.json workarounds.data_description keys:      ['separate_turn_on_commands', 'send_split_delay', 'include_config_in_attributes', 'enable_diagnostic_sensors', 'expand_light_groups']
+strings.json == en.json (workarounds):          True
+
+PASS — all parity assertions satisfied
