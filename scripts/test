@@ -20,7 +20,7 @@ if [ ! -d core ]; then
   exit 1
 fi
 
-export PYTHONPATH="${PYTHONPATH}:${PWD}"
+export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${PWD}"
 # shellcheck disable=SC1091
 [ -f .venv/bin/activate ] && source .venv/bin/activate
 

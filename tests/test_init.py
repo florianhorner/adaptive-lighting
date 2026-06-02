@@ -68,7 +68,6 @@ def test_platforms():
     removed; it never was -- sensor.py is shipped and loaded.)
     """
     assert adaptive_lighting.PLATFORMS == ["switch", "sensor"]
-    assert "sensor" in adaptive_lighting.PLATFORMS
 
 
 async def test_sensor_platform_not_loaded(hass):

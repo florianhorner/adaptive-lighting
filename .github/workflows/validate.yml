@@ -18,6 +18,5 @@ jobs:
           # This fork ships as a HACS *custom* repository, not via the default
           # store, so the default-store inclusion checks don't apply: `issues`
           # (Issues are intentionally disabled) and `topics` (no store listing).
-          # The load-bearing checks (integration_manifest, hacsjson, brands)
-          # still run.
+          # The load-bearing checks (manifest, hacsjson, brands) still run.
           ignore: "issues topics"

@@ -2930,6 +2930,9 @@ async def test_adapt_only_on_bare_turn_on_respects_pause_changed_mode(hass, inte
 
 
 @pytest.mark.xfail(
+    # Only expected to fail on older cores; on >= 2025.12 it must pass, so a
+    # regression there is not masked by an XPASS.
+    tuple(int(x) for x in ha_version.split(".")[:2]) < (2025, 12),
     reason=(
         "Version-dependent: with separate_turn_on_commands, non-HA "
         "brightness-change detection does not register on HA core < 2025.12 "
