@@ -716,9 +716,9 @@ async def test_manual_control(
     # - With adapt_only_on_bare_turn_on=True: SHOULD mark as manually controlled (to preserve scenes)
     # - With adapt_only_on_bare_turn_on=False: should NOT mark (fix for issue #1378)
     if adapt_only_on_bare_turn_on:
-        assert (
-            manual_control[ENTITY_LIGHT_1] == LightControlAttributes.BRIGHTNESS
-        ), manual_control
+        assert manual_control[ENTITY_LIGHT_1] == LightControlAttributes.BRIGHTNESS, (
+            manual_control
+        )
     else:
         assert not manual_control[ENTITY_LIGHT_1], manual_control
     # Reset for next test
@@ -727,9 +727,9 @@ async def test_manual_control(
     assert not manual_control[ENTITY_LIGHT_1], manual_control
     # Now change brightness while ON - this should always be manual control
     await turn_light(True, brightness=increased_brightness())
-    assert (
-        manual_control[ENTITY_LIGHT_1] == LightControlAttributes.BRIGHTNESS
-    ), manual_control
+    assert manual_control[ENTITY_LIGHT_1] == LightControlAttributes.BRIGHTNESS, (
+        manual_control
+    )
 
     # Check that toggling (sleep mode) switch resets manual control
     for entity_id in [ENTITY_SWITCH, ENTITY_SLEEP_MODE_SWITCH]:
@@ -2744,9 +2744,9 @@ async def test_skipped_lights_context_not_from_arbitrary_switch(hass):
 
     # Find the skipped event (contains ":skpp:" in context)
     skipped_events = [e for e in events if ":skpp:" in e.context.id]
-    assert (
-        len(skipped_events) == 1
-    ), f"Expected 1 skipped event, got {len(skipped_events)}"
+    assert len(skipped_events) == 1, (
+        f"Expected 1 skipped event, got {len(skipped_events)}"
+    )
 
     skipped_event = skipped_events[0]
     skipped_context_id = skipped_event.context.id
@@ -2973,12 +2973,12 @@ async def test_detect_non_ha_changes_with_separate_turn_on_commands(hass):
 
     last_sd = switch.manager.last_service_data.get(ENTITY_LIGHT_1)
     assert last_sd is not None, "last_service_data not set after force adapt"
-    assert (
-        ATTR_BRIGHTNESS in last_sd
-    ), f"brightness missing from last_service_data after split calls: {last_sd}"
-    assert (
-        ATTR_COLOR_TEMP_KELVIN in last_sd or ATTR_RGB_COLOR in last_sd
-    ), f"color missing from last_service_data after split calls: {last_sd}"
+    assert ATTR_BRIGHTNESS in last_sd, (
+        f"brightness missing from last_service_data after split calls: {last_sd}"
+    )
+    assert ATTR_COLOR_TEMP_KELVIN in last_sd or ATTR_RGB_COLOR in last_sd, (
+        f"color missing from last_service_data after split calls: {last_sd}"
+    )
 
     al_brightness = light.brightness
     switch.manager.manual_control[ENTITY_LIGHT_1] = LightControlAttributes.NONE
@@ -3008,9 +3008,9 @@ async def test_detect_non_ha_changes_with_separate_turn_on_commands(hass):
 
         await update(force=False)
 
-    assert (
-        light.brightness == manual_brightness
-    ), f"AL overrode manual brightness {manual_brightness} with {al_brightness}"
+    assert light.brightness == manual_brightness, (
+        f"AL overrode manual brightness {manual_brightness} with {al_brightness}"
+    )
 
 
 async def test_extra_state_attributes_includes_per_axis_siblings(hass):
@@ -3130,9 +3130,9 @@ async def test_unsupported_skip_warns_once_per_light(hass, caplog):
             and ENTITY_LIGHT_1 in r.getMessage()
             and "intersect the currently-adapting axes" in r.getMessage()
         ]
-        assert (
-            len(warning_records) == 1
-        ), f"expected one warning on first skip, got {len(warning_records)}"
+        assert len(warning_records) == 1, (
+            f"expected one warning on first skip, got {len(warning_records)}"
+        )
         assert ENTITY_LIGHT_1 in switch._unsupported_skip_warned
 
         caplog.clear()
@@ -3146,9 +3146,9 @@ async def test_unsupported_skip_warns_once_per_light(hass, caplog):
             )
         assert second is None
         warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert (
-            warning_records == []
-        ), f"expected no warnings on second skip, got {warning_records}"
+        assert warning_records == [], (
+            f"expected no warnings on second skip, got {warning_records}"
+        )
         debug_records = [
             r
             for r in caplog.records
@@ -3324,18 +3324,18 @@ def test_expand_light_groups_const_wiring():
         VALIDATION_TUPLES,
     )
 
-    assert (
-        DEFAULT_EXPAND_LIGHT_GROUPS is True
-    ), "Default must be True to preserve legacy behavior for existing users"
+    assert DEFAULT_EXPAND_LIGHT_GROUPS is True, (
+        "Default must be True to preserve legacy behavior for existing users"
+    )
 
     entries = {k: (default, validator) for k, default, validator in VALIDATION_TUPLES}
     assert CONF_EXPAND_LIGHT_GROUPS in entries
     assert entries[CONF_EXPAND_LIGHT_GROUPS][0] is True
     assert entries[CONF_EXPAND_LIGHT_GROUPS][1] is bool
 
-    assert (
-        CONF_EXPAND_LIGHT_GROUPS in STEP_OPTIONS["workarounds"]
-    ), "Option must live in workarounds step so users can toggle it in the UI"
+    assert CONF_EXPAND_LIGHT_GROUPS in STEP_OPTIONS["workarounds"], (
+        "Option must live in workarounds step so users can toggle it in the UI"
+    )
 
     assert CONF_EXPAND_LIGHT_GROUPS in DOCS
     assert DOCS[CONF_EXPAND_LIGHT_GROUPS], "User-facing description must not be empty"

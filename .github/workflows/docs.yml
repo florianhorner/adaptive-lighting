@@ -47,6 +47,9 @@ jobs:
           echo "Webapp integrated at site/simulator/"
 
       - name: Upload artifact
+        # PRs can never deploy (the deploy job is gated to push on main), so only
+        # upload the Pages artifact on push. PRs still run the build as a sanity check.
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./site
