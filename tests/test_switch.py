@@ -149,16 +149,15 @@ ENTITY_LIGHT_1 = "light.light_1"
 ENTITY_LIGHT_2 = "light.light_2"
 ENTITY_LIGHT_3 = "light.light_3"
 _SWITCH_FMT = f"{SWITCH_DOMAIN}.{DOMAIN}"
-ENTITY_SWITCH = f"{SWITCH_DOMAIN}.{DEFAULT_NAME}_{DOMAIN}_{DEFAULT_NAME}"
-ENTITY_SLEEP_MODE_SWITCH = (
-    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_{DOMAIN}_sleep_mode_{DEFAULT_NAME}"
-)
+# Entity IDs after the has_entity_name adoption (commit ce73b2d): the device
+# is "Adaptive Lighting: <name>" and sub-switches add their own name, so HA
+# yields switch.adaptive_lighting_<name>[ _<subswitch> ] (no duplicated prefix).
+ENTITY_SWITCH = f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}"
+ENTITY_SLEEP_MODE_SWITCH = f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_sleep_mode"
 ENTITY_ADAPT_BRIGHTNESS_SWITCH = (
-    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_{DOMAIN}_adapt_brightness_{DEFAULT_NAME}"
+    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_adapt_brightness"
 )
-ENTITY_ADAPT_COLOR_SWITCH = (
-    f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_{DOMAIN}_adapt_color_{DEFAULT_NAME}"
-)
+ENTITY_ADAPT_COLOR_SWITCH = f"{SWITCH_DOMAIN}.{DOMAIN}_{DEFAULT_NAME}_adapt_color"
 
 ORIG_TIMEZONE = dt_util.DEFAULT_TIME_ZONE
 

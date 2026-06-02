@@ -60,13 +60,15 @@ async def test_unload_entry(hass):
 # ---------------------------------------------------------------------------
 
 
-def test_platforms_switch_only():
-    """Test that PLATFORMS contains only 'switch' after sensor platform removal.
+def test_platforms():
+    """Test that PLATFORMS contains the switch and sensor platforms.
 
-    The PR removed the sensor platform (diagnostic status sensors) from PLATFORMS.
+    The fork ships diagnostic status sensors, so 'sensor' is a real platform
+    alongside 'switch'. (An earlier draft assumed the sensor platform had been
+    removed; it never was -- sensor.py is shipped and loaded.)
     """
-    assert adaptive_lighting.PLATFORMS == ["switch"]
-    assert "sensor" not in adaptive_lighting.PLATFORMS
+    assert adaptive_lighting.PLATFORMS == ["switch", "sensor"]
+    assert "sensor" in adaptive_lighting.PLATFORMS
 
 
 async def test_sensor_platform_not_loaded(hass):

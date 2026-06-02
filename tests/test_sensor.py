@@ -130,7 +130,8 @@ async def test_status_transitions(hass: HomeAssistant) -> None:
     sensors = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry.entry_id
+            ent_reg,
+            entry.entry_id,
         )
         if entry.domain == "sensor"
     ]
@@ -153,7 +154,9 @@ async def test_status_transitions(hass: HomeAssistant) -> None:
 
     # Transition to MANUAL_OVERRIDE (Priority 4)
     manager.set_light_status(
-        ENTITY_LIGHT_1, default_source, LightStatus.MANUAL_OVERRIDE
+        ENTITY_LIGHT_1,
+        default_source,
+        LightStatus.MANUAL_OVERRIDE,
     )
     await hass.async_block_till_done()
     state = hass.states.get(sensor_id)
@@ -208,7 +211,8 @@ async def test_combined_status_priority(hass: HomeAssistant) -> None:
     sensors = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry.entry_id
+            ent_reg,
+            entry.entry_id,
         )
         if entry.domain == "sensor"
     ]
@@ -279,14 +283,16 @@ async def test_multi_profile_behavior(hass: HomeAssistant) -> None:
     sensors1 = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry1.entry_id
+            ent_reg,
+            entry1.entry_id,
         )
         if entry.domain == "sensor"
     ]
     sensors2 = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry2.entry_id
+            ent_reg,
+            entry2.entry_id,
         )
         if entry.domain == "sensor"
     ]
@@ -316,7 +322,8 @@ async def test_sensor_cleanup_on_unload(hass: HomeAssistant) -> None:
     sensors = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry.entry_id
+            ent_reg,
+            entry.entry_id,
         )
         if entry.domain == "sensor"
     ]
@@ -380,7 +387,8 @@ async def test_expand_light_groups(hass: HomeAssistant) -> None:
     sensors = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry.entry_id
+            ent_reg,
+            entry.entry_id,
         )
         if entry.domain == "sensor"
     ]
@@ -428,10 +436,11 @@ async def test_multi_profile_same_light(hass: HomeAssistant) -> None:
     assert state is not None
     profiles = state.attributes["status_profiles"]
 
-    # Both profiles should be present in status_profiles
-    # The source is usually "switch.adaptive_lighting_<profile_name>"
-    source1 = "switch.profile1_adaptive_lighting_profile1"
-    source2 = "switch.profile2_adaptive_lighting_profile2"
+    # Both profiles should be present in status_profiles.
+    # After has_entity_name (commit ce73b2d) the source is
+    # "switch.adaptive_lighting_<profile_name>" (no duplicated prefix).
+    source1 = "switch.adaptive_lighting_profile1"
+    source2 = "switch.adaptive_lighting_profile2"
 
     assert source1 in profiles
     assert source2 in profiles
@@ -520,7 +529,8 @@ async def test_sensor_light_removal(hass: HomeAssistant) -> None:
 
     # Remove light 2
     hass.config_entries.async_update_entry(
-        entry, options={CONF_LIGHTS: [ENTITY_LIGHT_1]}
+        entry,
+        options={CONF_LIGHTS: [ENTITY_LIGHT_1]},
     )
     await hass.async_block_till_done()
 
@@ -551,7 +561,8 @@ async def test_sensor_attributes(hass: HomeAssistant) -> None:
     sensors = [
         entry.entity_id
         for entry in entity_registry.async_entries_for_config_entry(
-            ent_reg, entry.entry_id
+            ent_reg,
+            entry.entry_id,
         )
         if entry.domain == "sensor"
     ]
