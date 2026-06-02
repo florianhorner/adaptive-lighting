@@ -10,6 +10,10 @@ jobs:
     name: Run pytest
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    # The HA `dev` leg tracks an unstable upstream (it drops test files and
+    # deps mid-cycle, e.g. requirements_test_all.txt / paho), so keep it as a
+    # non-blocking early-warning signal rather than a required gate.
+    continue-on-error: ${{ matrix.core-version == 'dev' }}
     strategy:
       fail-fast: false
       matrix:
