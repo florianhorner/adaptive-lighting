@@ -1,5 +1,6 @@
 """Extracts the dependencies of the components required for testing."""
 
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -8,8 +9,22 @@ components, packages = [], []
 
 requirements = Path("core") / "requirements_test_all.txt"
 
-with requirements.open() as f:
-    lines = f.readlines()
+if requirements.exists():
+    with requirements.open() as f:
+        lines = f.readlines()
+else:
+    # home-assistant/core removed requirements_test_all.txt from its `dev`
+    # branch. Without it we cannot resolve per-component test deps, so fall
+    # back to a minimal set (just `flaky`, appended below) instead of crashing
+    # with FileNotFoundError. The `dev` matrix leg is a non-blocking
+    # early-warning leg; tagged stable releases still ship the file and
+    # resolve the full dependency set.
+    print(  # noqa: T201
+        "test_dependencies: core/requirements_test_all.txt not found; "
+        "using minimal deps (expected on HA core 'dev').",
+        file=sys.stderr,
+    )
+    lines = []
 
 for line in lines:
     line = line.strip()  # noqa: PLW2901
