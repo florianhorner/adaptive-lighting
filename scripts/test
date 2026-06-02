@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Run the adaptive_lighting test suite against the home-assistant/core symlink
+# harness (mirrors .github/workflows/pytest.yaml). This is the tightest local
+# loop for the pytest checks -- scripts/lint only covers pre-commit.
+#
+# One-time setup (see CONTRIBUTING.md):
+#   git clone --depth 1 https://github.com/home-assistant/core.git core
+#   ./scripts/setup-dependencies && ./scripts/setup-symlinks
+#
+# Pass extra pytest args through, e.g.:
+#   ./scripts/test -k test_manual_control -x
+set -e
+
+cd "$(dirname "$0")/.."
+
+if [ ! -d core ]; then
+  echo "error: ./core not found." >&2
+  echo "  git clone --depth 1 https://github.com/home-assistant/core.git core" >&2
+  echo "  ./scripts/setup-dependencies && ./scripts/setup-symlinks" >&2
+  exit 1
+fi
+
+export PYTHONPATH="${PYTHONPATH}:${PWD}"
+# shellcheck disable=SC1091
+[ -f .venv/bin/activate ] && source .venv/bin/activate
+
+cd core
+exec python3 -X dev -m pytest \
+  --timeout=9 \
+  "$@" \
+  tests/components/adaptive_lighting
