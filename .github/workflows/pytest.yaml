@@ -2,7 +2,7 @@ name: pytest
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -51,6 +51,11 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Home Assistant
+        # The HA `dev` leg tracks an unstable upstream (it drops test files and
+        # deps mid-cycle, e.g. requirements_test_all.txt / paho), so keep it a
+        # non-blocking early-warning signal (step-level so the leg still reports
+        # green) rather than a required gate.
+        continue-on-error: ${{ matrix.core-version == 'dev' }}
         uses: ./.github/workflows/install_dependencies
         with:
           python-version: ${{ matrix.python-version }}
@@ -58,6 +63,7 @@ jobs:
 
       - name: Run pytest
         timeout-minutes: 60
+        continue-on-error: ${{ matrix.core-version == 'dev' }}
         run: |
           export PYTHONPATH=${PYTHONPATH}:${PWD}
           source .venv/bin/activate
