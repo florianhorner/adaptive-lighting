@@ -12,10 +12,9 @@ repos:
     hooks:
       - id: ruff
         args: ["--fix"]
-  - repo: https://github.com/psf/black
-    rev: 25.1.0
-    hooks:
-      - id: black
+      # ruff-format replaces black so the formatter matches local tooling
+      # (editors run ruff format) and avoids black-vs-ruff formatting churn.
+      - id: ruff-format
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
