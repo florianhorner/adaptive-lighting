@@ -14,13 +14,13 @@ from homeassistant.components.light import (
     ATTR_XY_COLOR,
 )
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry  # noqa: TC002
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback  # noqa: TC002
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 from homeassistant.util import slugify
 
@@ -96,7 +96,7 @@ async def async_setup_entry(
         async_add_entities(new_entities)
 
 
-async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+async def async_unload_entry(_hass: HomeAssistant, _config_entry: ConfigEntry) -> bool:
     """Unload Adaptive Lighting status sensors."""
     return True
 

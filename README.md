@@ -499,11 +499,11 @@ Notice the values of `brightness_mode_time_light` and `brightness_mode_time_dark
 
 ## Why this fork exists
 
-This fork ships fixes and pending community contributions on current Home Assistant
-releases while upstream review is still pending.
+I have been using Adaptive Lighting for a long time and rely on it daily, so I invest in improving the OSS project that powers my home.
 
-It keeps the same `adaptive_lighting` integration domain, tracks upstream closely,
-and sends generally useful fixes back upstream where possible.
+This fork exists so I can develop, test, and ship fixes and pending community contributions that make my Adaptive Lighting setup work better in practice.
+
+It keeps the same `adaptive_lighting` integration domain, tracks upstream closely, and contributes generally useful improvements back whenever possible.
 
 ## What this fork adds
 

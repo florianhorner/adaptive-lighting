@@ -30,19 +30,12 @@ jobs:
 
       - name: Check for changes
         run: |
+          # Drift gate only: fail loudly if generated content is stale. The PR
+          # trigger keeps `main` clean, so we no longer auto-commit/push to main
+          # (that raced with toc.yaml and re-triggered every push:[main] workflow).
           if [ -n "$(git status --porcelain)" ]; then
-            if [ "${{ github.event_name }}" == "pull_request" ]; then
-              echo "::error::Auto-generated files are not up to date. Please run './scripts/update-generated-content' locally and push the changes."
-              exit 1
-            else
-              echo "Changes detected, committing and pushing..."
-              git add -u .
-              git config --local user.email "github-actions[bot]@users.noreply.github.com"
-              git config --local user.name "github-actions[bot]"
-              git commit -m "Update auto-generated content"
-              git pull --rebase
-              git push
-            fi
-          else
-            echo "No changes detected."
+            echo "::error::Auto-generated files are not up to date. Run './scripts/update-generated-content' locally and commit the changes."
+            git diff
+            exit 1
           fi
+          echo "No changes detected."

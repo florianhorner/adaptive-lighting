@@ -185,7 +185,7 @@ def plot_color_temp(inputs: dict[str, Any], sleep_mode: bool) -> plt.Figure:
     ax.set_xlim(0, 24)
     ax.set_xticks(np.arange(0, 25, 1))
     yticks = np.arange(-1, 1.1, 0.1)
-    ax.set_yticks(yticks, [f"{label*100:.0f}%" for label in yticks])
+    ax.set_yticks(yticks, [f"{label * 100:.0f}%" for label in yticks])
     ax.set_xlabel("Time (hours)")
     ax.legend()
     ax.set_ylabel("Sun position (%)")
@@ -298,7 +298,7 @@ def time_to_float(time: dt.time | dt.datetime) -> float:
 
 
 def _kw(input):
-    location = Location(LocationInfo(timezone=dt.timezone.utc))
+    location = Location(LocationInfo(timezone=dt.UTC))
     return {
         "name": "Adaptive Lighting Simulator",
         "adapt_until_sleep": input.adapt_until_sleep(),

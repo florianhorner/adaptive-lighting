@@ -436,10 +436,11 @@ async def test_multi_profile_same_light(hass: HomeAssistant) -> None:
     assert state is not None
     profiles = state.attributes["status_profiles"]
 
-    # Both profiles should be present in status_profiles
-    # The source is usually "switch.adaptive_lighting_<profile_name>"
-    source1 = "switch.profile1_adaptive_lighting_profile1"
-    source2 = "switch.profile2_adaptive_lighting_profile2"
+    # Both profiles should be present in status_profiles.
+    # After has_entity_name (commit ce73b2d) the source is
+    # "switch.adaptive_lighting_<profile_name>" (no duplicated prefix).
+    source1 = "switch.adaptive_lighting_profile1"
+    source2 = "switch.adaptive_lighting_profile2"
 
     assert source1 in profiles
     assert source2 in profiles
