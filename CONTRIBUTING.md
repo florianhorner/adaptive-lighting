@@ -73,3 +73,19 @@ ships.
 `verify / Verify PR proof block`, `validate_hacs`, `validate_hassfest`, and the two
 stable `pytest` legs. PRs also need a `## Proof` block in the description (enforced
 by `verify-claims`).
+
+## Branch hygiene
+
+Delete your feature branch after its PR merges. Stale local branches don't block
+CI but create noise about what's in-flight.
+
+```bash
+# Squash-merged branches need force-delete (git doesn't see the squash ancestry):
+git checkout main && git pull
+git branch -D your-feature-branch
+# Verify the PR merged first: gh pr view <number> --json state
+```
+
+Enable "Automatically delete head branches" in repo Settings → General to have
+GitHub auto-delete remote branches after every PR merge. Local branches still
+need manual cleanup.
