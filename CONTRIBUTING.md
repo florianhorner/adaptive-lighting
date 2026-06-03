@@ -62,6 +62,11 @@ attached (HACS installs from this). Prerelease suffixes are auto-flagged so HACS
 doesn't promote them to stable users. **Do not** hand-bump the version in normal
 commits — the tag is the source of truth at release time.
 
+`pyproject.toml`'s `version` is **not** stamped and is **not** published (no PyPI; it
+isn't in the release zip) — it's a cosmetic dev-tooling marker that may lag the latest
+tag (it isn't bumped per-release). Leave it alone; the tag-stamped `manifest.json` is the only version that
+ships.
+
 ## CI gate
 
 `main` requires these checks to be green before merge: `pre-commit`,
