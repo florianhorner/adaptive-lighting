@@ -377,6 +377,28 @@ For more details on adding the integration and setting options, refer to the [do
 
 Adaptive Lighting was initially inspired by @claytonjn's [hass-circadian\_lighting](https://github.com/claytonjn/hass-circadian_lighting), but has since been entirely rewritten and expanded with new features.
 
+### :jigsaw: Using with Lightener (per-light brightness groups)
+
+[Lightener](https://github.com/florianhorner/lightener-curve-editor) creates a virtual light whose 0-100% brightness is distributed to member bulbs through custom per-bulb curves you design. Adaptive Lighting can drive that virtual light so the whole group dims and warms over the day **without** flattening your staged curves.
+
+Point Adaptive Lighting at the **Lightener virtual light** (not its members) and disable group expansion so AL controls the group entity. Lightener then curve-maps the brightness across members and forwards the color temperature to each member unchanged:
+
+```yaml
+# Example configuration.yaml entry
+adaptive_lighting:
+  - name: "Living Room (Lightener)"
+    lights:
+      - light.lightener_living_room   # the Lightener virtual light, NOT its members
+    expand_light_groups: false        # control the group entity; let Lightener distribute
+    detect_non_ha_changes: false      # recommended: avoids false manual-override pauses
+```
+
+- **`expand_light_groups: false` is required.** With the default (`true`), Adaptive Lighting expands the group into its member bulbs and drives them directly, overwriting Lightener's per-bulb staging.
+- **`detect_non_ha_changes: false` is recommended.** After Lightener distributes the brightness, the group reports a reverse-computed level; this setting keeps Adaptive Lighting from reading that as a manual change and pausing adaptation.
+- **Both brightness and color temperature adapt** through the single virtual light. Lightener forwards the color temperature (or RGB, with `prefer_rgb_color`) to every color-capable member; on/off-only members ignore it.
+
+**Limitation:** the color temperature is sent uniformly to all members. If members support different Kelvin ranges, a bulb may clamp a value outside its range, so colors can diverge slightly across mismatched bulbs. Group bulbs with similar color-temperature ranges for the most consistent result.
+
 ## :sos: Troubleshooting
 
 <!-- SECTION:troubleshooting-intro:START -->
