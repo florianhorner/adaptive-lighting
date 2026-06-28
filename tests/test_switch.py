@@ -93,9 +93,13 @@ try:
     from homeassistant.components.template.light import (
         StateLightEntity as LightTemplate,
     )
+
+    _MODERN_TEMPLATE_LIGHT_CONFIG = True
 except ImportError:
     # HA < 2025.8
     from homeassistant.components.template.light import LightTemplate
+
+    _MODERN_TEMPLATE_LIGHT_CONFIG = False
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
@@ -208,44 +212,78 @@ async def setup_switch(hass, extra_data) -> tuple[MockConfigEntry, AdaptiveSwitc
 async def setup_lights(hass: HomeAssistant, with_group: bool = False):
     """Set up 3 light entities using the 'template' platform."""
     n = 3 if not with_group else 5  # last 2 will be put in a group
-    if with_group:
+    if not _MODERN_TEMPLATE_LIGHT_CONFIG:
+        template_lights = {
+            f"light_{i}": {
+                "unique_id": f"light_{i}",
+                "friendly_name": f"light_{i}",
+                "turn_on": None,
+                "turn_off": None,
+                "set_level": None,
+                "set_temperature": None,
+                "set_color": None,
+            }
+            for i in range(1, n + 1)
+        }
+        template_lights["light_3"]["supports_transition_template"] = True
+        platforms = [{"platform": "template", "lights": template_lights}]
+
+        if with_group:
+            platforms.append(
+                {
+                    "platform": "group",
+                    "entities": ["light.light_4", "light.light_5"],
+                    "name": "Light Group",
+                    "unique_id": "light_group",
+                    "all": "false",
+                },
+            )
+
         await async_setup_component(
             hass,
             LIGHT_DOMAIN,
-            {
-                LIGHT_DOMAIN: [
-                    {
-                        "platform": "group",
-                        "entities": ["light.light_4", "light.light_5"],
-                        "name": "Light Group",
-                        "unique_id": "light_group",
-                        "all": "false",
-                    },
-                ],
-            },
+            {LIGHT_DOMAIN: platforms},
         )
         await hass.async_block_till_done()
+    else:
+        if with_group:
+            await async_setup_component(
+                hass,
+                LIGHT_DOMAIN,
+                {
+                    LIGHT_DOMAIN: [
+                        {
+                            "platform": "group",
+                            "entities": ["light.light_4", "light.light_5"],
+                            "name": "Light Group",
+                            "unique_id": "light_group",
+                            "all": "false",
+                        },
+                    ],
+                },
+            )
+            await hass.async_block_till_done()
 
-    template_lights = [
-        {
-            "unique_id": f"light_{i}",
-            "name": f"light_{i}",
-            "turn_on": [],
-            "turn_off": [],
-            "set_level": [],
-            "set_temperature": [],
-            "set_rgb": [],
-        }
-        for i in range(1, n + 1)
-    ]
-    template_lights[2]["supports_transition"] = "{{ true }}"
+        template_lights = [
+            {
+                "unique_id": f"light_{i}",
+                "name": f"light_{i}",
+                "turn_on": [],
+                "turn_off": [],
+                "set_level": [],
+                "set_temperature": [],
+                "set_rgb": [],
+            }
+            for i in range(1, n + 1)
+        ]
+        template_lights[2]["supports_transition"] = "{{ true }}"
 
-    await async_setup_component(
-        hass,
-        "template",
-        {"template": {LIGHT_DOMAIN: template_lights}},
-    )
-    await hass.async_block_till_done()
+        await async_setup_component(
+            hass,
+            "template",
+            {"template": {LIGHT_DOMAIN: template_lights}},
+        )
+        await hass.async_block_till_done()
 
     if with_group:
         state = hass.states.get("light.light_group")
