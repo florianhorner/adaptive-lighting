@@ -18,7 +18,7 @@
     "step": {
       "init": {
         "title": "Essentials",
-        "description": "Pick your lights and set brightness and color ranges. Most users only need this page. For interactive graphs, visit [this web app](https://basnijholt.github.io/adaptive-lighting).",
+        "description": "Pick your lights and set brightness and color ranges. Most users only need this page.",
         "data": {
           "lights": "조명: 제어될 조명 entity_ids의 목록 (비어 있을 수 있음). 🌟",
           "min_brightness": "최소 밝기: 밝기 최소 퍼센트. 💡",

@@ -18,7 +18,7 @@
     "step": {
       "init": {
         "title": "Essentials",
-        "description": "Pick your lights and set brightness and color ranges. Most users only need this page. For interactive graphs, visit [this web app](https://basnijholt.github.io/adaptive-lighting).",
+        "description": "Pick your lights and set brightness and color ranges. Most users only need this page.",
         "data": {
           "lights": "lights：要控制的灯光实体ID列表（可以为空）。🌟",
           "min_brightness": "min_brightness：最小亮度百分比。💡",

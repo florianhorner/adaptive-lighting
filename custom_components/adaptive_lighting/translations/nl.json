@@ -18,7 +18,7 @@
     "step": {
       "init": {
         "title": "Essentials",
-        "description": "Pick your lights and set brightness and color ranges. Most users only need this page. For interactive graphs, visit [this web app](https://basnijholt.github.io/adaptive-lighting).",
+        "description": "Pick your lights and set brightness and color ranges. Most users only need this page.",
         "data": {
           "lights": "Lampen: lijst van `light` entiteiten om te bedienen (kan leeg zijn). 🌟",
           "min_brightness": "min_brightness: Laagste helderheid van lichten tijdens een cyclus. (%)",

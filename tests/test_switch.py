@@ -176,6 +176,8 @@ def reset_time_zone():
 @pytest.fixture
 async def cleanup(hass):
     yield
+    if DOMAIN not in hass.data:
+        return
     manager: AdaptiveLightingManager = hass.data[DOMAIN][ATTR_ADAPTIVE_LIGHTING_MANAGER]
     for timer in manager.auto_reset_manual_control_timers.values():
         timer.cancel()
@@ -206,36 +208,42 @@ async def setup_switch(hass, extra_data) -> tuple[MockConfigEntry, AdaptiveSwitc
 async def setup_lights(hass: HomeAssistant, with_group: bool = False):
     """Set up 3 light entities using the 'template' platform."""
     n = 3 if not with_group else 5  # last 2 will be put in a group
-    template_lights = {
-        f"light_{i}": {
-            "unique_id": f"light_{i}",
-            "friendly_name": f"light_{i}",
-            "turn_on": None,
-            "turn_off": None,
-            "set_level": None,
-            "set_temperature": None,
-            "set_color": None,
-        }
-        for i in range(1, n + 1)
-    }
-    template_lights["light_3"]["supports_transition_template"] = True
-    platforms = [{"platform": "template", "lights": template_lights}]
-
     if with_group:
-        platforms.append(
+        await async_setup_component(
+            hass,
+            LIGHT_DOMAIN,
             {
-                "platform": "group",
-                "entities": ["light.light_4", "light.light_5"],
-                "name": "Light Group",
-                "unique_id": "light_group",
-                "all": "false",
+                LIGHT_DOMAIN: [
+                    {
+                        "platform": "group",
+                        "entities": ["light.light_4", "light.light_5"],
+                        "name": "Light Group",
+                        "unique_id": "light_group",
+                        "all": "false",
+                    },
+                ],
             },
         )
+        await hass.async_block_till_done()
+
+    template_lights = [
+        {
+            "unique_id": f"light_{i}",
+            "name": f"light_{i}",
+            "turn_on": [],
+            "turn_off": [],
+            "set_level": [],
+            "set_temperature": [],
+            "set_rgb": [],
+        }
+        for i in range(1, n + 1)
+    ]
+    template_lights[2]["supports_transition"] = "{{ true }}"
 
     await async_setup_component(
         hass,
-        LIGHT_DOMAIN,
-        {LIGHT_DOMAIN: platforms},
+        "template",
+        {"template": {LIGHT_DOMAIN: template_lights}},
     )
     await hass.async_block_till_done()
 
@@ -1220,7 +1228,7 @@ def test_attributes_have_changed():
     )
 
 
-async def test_state_change_handlers(hass):
+async def test_state_change_handlers(hass, cleanup):
     """Test AdaptiveLightingManager's EVENT_STATE_CHANGED listener.
     ======================
     Sequence of events:

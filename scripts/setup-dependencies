@@ -9,6 +9,40 @@ grep -v '^mypy-dev' core/requirements_test.txt > core/requirements_test.txt.tmp 
 
 uv pip install -r core/requirements.txt
 uv pip install -r core/requirements_test.txt
+
+# HA 2026.4+ imports aiohasupervisor from tests/components/conftest.py. It has
+# moved between aggregate requirement files, so install the pinned core version
+# from whichever file exists in the checked-out Home Assistant tree.
+install_core_requirement() {
+  local package="$1"
+  local req_file
+  local req
+
+  for req_file in core/requirements_test_all.txt core/requirements_all.txt; do
+    [[ -f "${req_file}" ]] || continue
+    req="$(grep -m1 "^${package}==" "${req_file}" || true)"
+    if [[ -n "${req}" ]]; then
+      uv pip install "${req}"
+      return
+    fi
+  done
+}
+
+install_core_requirement aiohasupervisor
+
+# HA 2026.4+ validates service translations through translations/en.json.
+# The core checkout keeps English source strings in strings.json, so seed en.json
+# in the temporary CI checkout before tests load integrations.
+for strings_file in core/homeassistant/components/*/strings.json; do
+  [[ -f "${strings_file}" ]] || continue
+  translations_dir="$(dirname "${strings_file}")/translations"
+  en_translation="${translations_dir}/en.json"
+  if [[ ! -f "${en_translation}" ]]; then
+    mkdir -p "${translations_dir}"
+    cp "${strings_file}" "${en_translation}"
+  fi
+done
+
 uv pip install -e core/
 uv pip install ulid-transform # this is in Adaptive-lighting's manifest.json
 uv pip install $(python3 test_dependencies.py)

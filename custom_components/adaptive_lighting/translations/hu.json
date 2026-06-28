@@ -3,7 +3,7 @@
     "step": {
       "init": {
         "title": "Essentials",
-        "description": "Pick your lights and set brightness and color ranges. Most users only need this page. For interactive graphs, visit [this web app](https://basnijholt.github.io/adaptive-lighting).",
+        "description": "Pick your lights and set brightness and color ranges. Most users only need this page.",
         "data": {
           "lights": "lights: Az entity_id-k listája, amelyeket az AL vezéreljen (üresen is maradhat).🌟",
           "min_brightness": "min_brightness: Minimális fényerő százalékban. 💡",
