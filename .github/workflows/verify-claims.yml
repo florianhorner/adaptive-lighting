@@ -8,4 +8,4 @@ jobs:
   verify:
     uses: florianhorner/gh-workflows/.github/workflows/verify-claims.yml@v1.3
     with:
-      owned_repos: "florianhorner/adaptive-lighting"
+      owned_repos: "florianhorner/adaptive-lighting-fork"

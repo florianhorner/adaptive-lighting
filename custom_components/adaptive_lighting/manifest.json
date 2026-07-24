@@ -4,9 +4,9 @@
   "codeowners": ["@florianhorner"],
   "config_flow": true,
   "dependencies": ["light"],
-  "documentation": "https://github.com/florianhorner/adaptive-lighting#readme",
+  "documentation": "https://github.com/florianhorner/adaptive-lighting-fork#readme",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/florianhorner/adaptive-lighting/issues",
+  "issue_tracker": "https://github.com/florianhorner/adaptive-lighting-fork/issues",
   "requirements": ["ulid-transform"],
   "version": "1.30.1"
 }

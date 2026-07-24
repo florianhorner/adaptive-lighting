@@ -6,7 +6,7 @@
 ---
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/github/v/release/florianhorner/adaptive-lighting?style=for-the-badge)
+![Version](https://img.shields.io/github/v/release/florianhorner/adaptive-lighting-fork?style=for-the-badge)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-134-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
@@ -15,16 +15,16 @@
 
 <img src="https://raw.githubusercontent.com/home-assistant/brands/master/custom_integrations/adaptive_lighting/icon@2x.png" alt="logo" width="256px" height="256px" />
 
-[Adaptive Lighting](https://github.com/florianhorner/adaptive-lighting) is a custom component for [Home Assistant](https://www.home-assistant.io/) that intelligently adjusts the brightness and color of your lights based on the sun's position, while still allowing for manual control.
+[Adaptive Lighting](https://github.com/florianhorner/adaptive-lighting-fork) is a custom component for [Home Assistant](https://www.home-assistant.io/) that intelligently adjusts the brightness and color of your lights based on the sun's position, while still allowing for manual control.
 
 Download and install through [HACS (Home Assistant Community Store)](https://hacs.xyz/) as a custom repository:
 
 1. Open HACS → Integrations → three-dot menu (top right) → **Custom repositories**
-2. Add `florianhorner/adaptive-lighting` as **Integration**
+2. Add `florianhorner/adaptive-lighting-fork` as **Integration**
 3. Search "Adaptive Lighting" → Download
 4. Restart Home Assistant
 
-> **Versioning:** This fork uses its own version track. `v1.31.0` is the upstream commit we forked from. Fork versions advance independently — `florianhorner v1.32.0` and any future `basnijholt v1.32.0` will not be the same code. For upstream's release notes, see [basnijholt/adaptive-lighting/releases](https://github.com/basnijholt/adaptive-lighting/releases).
+> **Versioning:** This fork uses its own version track. `v1.32.0-beta.1` branched from upstream commit [`6cebe14`](https://github.com/basnijholt/adaptive-lighting/commit/6cebe14a69bf0ea19efeaf3ed5c20e5396087216) (PR [#1426](https://github.com/basnijholt/adaptive-lighting/pull/1426)), not from the final upstream `v1.31.0` tag. `v1.32.0-beta.2` keeps the fork additions and deliberately ports upstream [#1482](https://github.com/basnijholt/adaptive-lighting/pull/1482) and [#1483](https://github.com/basnijholt/adaptive-lighting/pull/1483). Fork and upstream versions with the same number are not the same code.
 
 By automatically adapting the settings of your lights throughout the day, Adaptive Lighting helps maintain your natural circadian rhythm 😴, which can lead to improved sleep, mood, and overall well-being. Experience cooler color temperatures at noon, gradually transitioning to warmer colors at sunset and sunrise.
 
@@ -453,6 +453,11 @@ Expose only the group (not individual bulbs) in Home Assistant Dashboards and ex
 
 > :warning: **If you control lights individually, `manual_control` cannot behave correctly! If you need to control lights individually as well, use a [Home Assistant Light Group](https://www.home-assistant.io/integrations/group/).**
 
+When mixing group types, avoid nesting: do not add integration-level groups (e.g., Zigbee2MQTT groups) to a [Home Assistant Light Group](https://www.home-assistant.io/integrations/group/) that is managed by Adaptive Lighting, and do not nest Home Assistant Light Groups inside each other.
+Adaptive Lighting cannot expand an integration-level group into its member lights, and nested groups make it unpredictable which entity Adaptive Lighting tracks and adapts, which can prevent lights from being adapted at all (see [#1378](https://github.com/basnijholt/adaptive-lighting/issues/1378)).
+Instead, add the individual light entities or a single Zigbee group directly to the Adaptive Lighting configuration.
+Also note that bulbs turned on via a Zigbee group broadcast may briefly flash their last (cached) brightness and color before the adapted values arrive; this happens inside the bulbs and cannot be prevented by Home Assistant or Adaptive Lighting.
+
 #### :rainbow: Light Colors Not Matching
 
 Bulbs from different manufacturers or models may have varying color temperature specifications. For instance, if you have two Adaptive Lighting configurations—one with only Philips Hue White Ambiance bulbs and another with a mix of Philips Hue White Ambiance and Sengled bulbs—the Philips Hue bulbs may appear to have different color temperatures despite having identical settings.
@@ -555,7 +560,7 @@ running in production here.
 |---|---|
 | Entity ID duplication fix | Filed upstream, not yet submitted as PR |
 | Zigbee off-state fix | [upstream #1460](https://github.com/basnijholt/adaptive-lighting/pull/1460) pending |
-| Log verbosity fix | [upstream #1434](https://github.com/basnijholt/adaptive-lighting/pull/1434) pending |
+| Log verbosity fix | [upstream #1434](https://github.com/basnijholt/adaptive-lighting/pull/1434) merged in upstream v1.31.0 |
 | 5-step options wizard | Fork-only |
 | UI string rewrite | Fork-only |
 | Diagnostic sensors | [upstream #1414](https://github.com/basnijholt/adaptive-lighting/pull/1414) pending |
@@ -565,7 +570,7 @@ running in production here.
 If you prefer the original project:
 
 1. In HACS → Integrations → find **Adaptive Lighting** → Remove
-2. Remove the custom repository (`florianhorner/adaptive-lighting`) from HACS settings
+2. Remove the custom repository (`florianhorner/adaptive-lighting-fork`) from HACS settings
 3. Install the original via the [default HACS repository](https://my.home-assistant.io/redirect/hacs_repository/?owner=basnijholt&repository=adaptive-lighting&category=integration) or add `basnijholt/adaptive-lighting` as a custom repository
 4. Restart Home Assistant
 
