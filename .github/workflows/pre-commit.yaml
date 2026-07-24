@@ -10,5 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        persist-credentials: false
     - uses: actions/setup-python@v6
     - uses: pre-commit/action@v3.0.1

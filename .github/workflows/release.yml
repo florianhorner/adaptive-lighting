@@ -19,15 +19,23 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Update manifest version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           cd custom_components/adaptive_lighting
-          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' manifest.json > tmp.json
+          jq --arg v "$RELEASE_VERSION" '.version = $v' manifest.json > tmp.json
           mv tmp.json manifest.json
 
       - name: Create zip
         run: |
           cd custom_components
           zip -r ../adaptive_lighting.zip adaptive_lighting/
+
+      - name: Verify zip manifest version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          test "$(unzip -p adaptive_lighting.zip adaptive_lighting/manifest.json | jq -r '.version')" = "$RELEASE_VERSION"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -44,7 +52,7 @@ jobs:
 
             ### HACS (recommended)
             1. Open HACS → Integrations → ⋮ (top right) → Custom repositories
-            2. Add `florianhorner/adaptive-lighting` as **Integration**
+            2. Add `florianhorner/adaptive-lighting-fork` as **Integration**
             3. Search "Adaptive Lighting" → Download
             4. Restart Home Assistant
 

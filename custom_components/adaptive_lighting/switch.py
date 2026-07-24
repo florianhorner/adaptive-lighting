@@ -67,7 +67,6 @@ from homeassistant.helpers.event import (
     async_track_time_interval,
 )
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.sun import get_astral_location
 from homeassistant.util import slugify
 from homeassistant.util.color import (
     color_temperature_to_rgb,
@@ -170,6 +169,19 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.typing import NoEventData, VolDictType
+
+try:
+    from homeassistant.helpers.sun import get_astral_observer
+except ImportError:  # `get_astral_observer` was added in HA 2026.7
+    from astral import Observer
+
+    def get_astral_observer(hass: HomeAssistant) -> Observer:
+        """Get an astral observer for the current HA configuration."""
+        return Observer(
+            hass.config.latitude,
+            hass.config.longitude,
+            hass.config.elevation,
+        )
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -964,11 +976,11 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
             self._multi_light_intercept = False
         self._expand_light_groups_flag = data[CONF_EXPAND_LIGHT_GROUPS]
         self._expand_light_groups()  # updates manual control timers
-        location, _ = get_astral_location(self.hass)
+        observer = get_astral_observer(self.hass)
 
         self._sun_light_settings = SunLightSettings(
             name=self._name,
-            astral_location=location,
+            astral_observer=observer,
             adapt_until_sleep=data[CONF_ADAPT_UNTIL_SLEEP],
             max_brightness=data[CONF_MAX_BRIGHTNESS],
             max_color_temp=data[CONF_MAX_COLOR_TEMP],
@@ -1661,10 +1673,17 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
             entity_id,
             event,
         )
+        state = self.hass.states.get(entity_id)
+        is_light_group = state is not None and _is_light_group(state)
         if (
             self._take_over_control
             and not self._detect_non_ha_changes
             and not from_turn_on
+            # A group's state is derived from its members. In direct-group
+            # mode, a member or integration fan-out can turn the group on
+            # without a service call targeting the group itself; that is not
+            # evidence of manual control over the group.
+            and not is_light_group
         ):
             # There is an edge case where 2 switches control the same light, e.g.,
             # one for brightness and one for color. Now we will mark both switches
@@ -2622,6 +2641,19 @@ class AdaptiveLightingManager:
         )
         return []
 
+    def _record_untracked_turn_on_events(
+        self,
+        service: str,
+        entity_ids: list[str],
+        event: Event,
+    ) -> None:
+        """Retain turn-on evidence for group members that are not managed."""
+        if service != SERVICE_TURN_ON:
+            return
+        self.turn_on_event.update(
+            {eid: event for eid in entity_ids if eid not in self.lights},
+        )
+
     async def turn_on_off_event_listener(self, event: Event) -> None:
         """Track 'light.turn_off' and 'light.turn_on' service calls."""
         domain = event.data.get(ATTR_DOMAIN)
@@ -2631,6 +2663,12 @@ class AdaptiveLightingManager:
         service = event.data[ATTR_SERVICE]
         service_data = event.data[ATTR_SERVICE_DATA]
         entity_ids = self._get_entity_list(service_data)
+
+        # Keep lightweight evidence for untracked group members without
+        # treating them as managed lights. This is needed when
+        # expand_light_groups=False: a member turn-on can legitimately turn
+        # the tracked group on while HA reuses its earlier turn-off context.
+        self._record_untracked_turn_on_events(service, entity_ids, event)
 
         if not any(eid in self.lights for eid in entity_ids):
             return
@@ -2837,7 +2875,16 @@ class AdaptiveLightingManager:
                     )
                     return
 
-            switches = _switches_with_lights(self.hass, [entity_id])
+            # Prefer an exact group match so switches that deliberately keep
+            # group entities (expand_light_groups=False) receive the event.
+            # Fall back to member expansion for legacy expanded-group setups.
+            switches = _switches_with_lights(
+                self.hass,
+                [entity_id],
+                expand_light_groups=False,
+            )
+            if not switches:
+                switches = _switches_with_lights(self.hass, [entity_id])
             for switch in switches:
                 if switch.is_on:
                     await switch._respond_to_off_to_on_event(
@@ -2996,7 +3043,45 @@ class AdaptiveLightingManager:
         id_off_to_on = off_to_on_event.context.id
         return turn_on_event is not None and id_off_to_on == turn_on_event.context.id
 
-    async def just_turned_off(  # noqa: PLR0911
+    def _member_turn_on_explains_group_turn_on(
+        self,
+        entity_id: str,
+        on_to_off_event: Event[EventStateChangedData],
+        off_to_on_event: Event[EventStateChangedData],
+    ) -> bool:
+        """Check if a light group's 'off' → 'on' is caused by a member's 'light.turn_on'.
+
+        When a member of a light group is turned on while the group is off, the
+        group turns on as a side effect. Home Assistant may reuse the context of
+        an earlier 'light.turn_off' call for the group's state change (entities
+        keep their context for a few seconds), which makes the group's turn-on
+        look like a polling artifact of the turn-off.
+        See https://github.com/basnijholt/adaptive-lighting/issues/1378
+        """
+        state = self.hass.states.get(entity_id)
+        if state is None or not _is_light_group(state):
+            return False
+        members: list[str] = state.attributes[ATTR_ENTITY_ID]
+        for member in members:
+            member_turn_on = self.turn_on_event.get(member)
+            if (
+                member_turn_on is not None
+                and on_to_off_event.time_fired
+                < member_turn_on.time_fired
+                <= off_to_on_event.time_fired
+            ):
+                _LOGGER.debug(
+                    "just_turned_off: Light group '%s' turned on because its member"
+                    " '%s' was turned on (context.id='%s'), so this is a legitimate"
+                    " turn-on, not a polling artifact.",
+                    entity_id,
+                    member,
+                    member_turn_on.context.id,
+                )
+                return True
+        return False
+
+    async def just_turned_off(  # noqa: PLR0911, PLR0912
         self,
         entity_id: str,
     ) -> bool:
@@ -3023,6 +3108,42 @@ class AdaptiveLightingManager:
             )
             return False
 
+        if off_to_on_event.context.id == on_to_off_event.context.id:
+            # Matching context IDs usually mean a polling artifact (HA briefly
+            # reports 'on' while the light is still turning off). However, the
+            # context is also reused when e.g. one automation turns the light
+            # off and later back on, or when an integration writes the state
+            # with the entity's cached context. Only treat the state change as
+            # a legitimate turn-on if a 'light.turn_on' call for this light (or
+            # for a member of this light group) fired between the two state
+            # changes.
+            turn_on_event = self.turn_on_event.get(entity_id)
+            if (
+                turn_on_event is not None
+                and on_to_off_event.time_fired
+                < turn_on_event.time_fired
+                <= off_to_on_event.time_fired
+            ):
+                _LOGGER.debug(
+                    "just_turned_off: 'light.turn_on' was called for '%s' between its"
+                    " 'on' → 'off' and 'off' → 'on' state changes, so this is a"
+                    " legitimate turn-on, not a polling artifact.",
+                    entity_id,
+                )
+                return False
+            if self._member_turn_on_explains_group_turn_on(
+                entity_id,
+                on_to_off_event,
+                off_to_on_event,
+            ):
+                return False
+            _LOGGER.debug(
+                "just_turned_off: 'on' → 'off' state change has the same context.id as the"
+                " 'off' → 'on' state change for '%s'. This is probably a false positive.",
+                entity_id,
+            )
+            return True
+
         id_on_to_off = on_to_off_event.context.id
 
         turn_off_event = self.turn_off_event.get(entity_id)
@@ -3031,10 +3152,6 @@ class AdaptiveLightingManager:
         else:
             transition = None
 
-        # Check if the off→on was triggered by a real turn_on service call
-        # BEFORE the context-equality check. This prevents false positives
-        # where a Zigbee device briefly reports 'off' during a turn_on
-        # transition, causing both events to share the same context ID.
         if self._off_to_on_state_event_is_from_turn_on(entity_id, off_to_on_event):
             is_toggle = off_to_on_event == self.toggle_event.get(entity_id)
             from_service = "light.toggle" if is_toggle else "light.turn_on"
@@ -3043,21 +3160,6 @@ class AdaptiveLightingManager:
                 from_service,
             )
             return False
-
-        if (
-            off_to_on_event.context.id == on_to_off_event.context.id
-            and turn_off_event is not None
-            and turn_off_event.context.id == on_to_off_event.context.id
-        ):
-            # Context IDs match AND a real turn_off service call was made with
-            # the same context. This is the legitimate case: a light still
-            # transitioning off that briefly polls as 'on'. Safe to cancel.
-            _LOGGER.debug(
-                "just_turned_off: 'on' → 'off' state change has the same context.id as the"
-                " 'off' → 'on' state change for '%s', confirmed by turn_off event.",
-                entity_id,
-            )
-            return True
 
         if (
             turn_off_event is not None
