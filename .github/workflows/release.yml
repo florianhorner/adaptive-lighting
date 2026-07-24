@@ -19,9 +19,11 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Update manifest version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           cd custom_components/adaptive_lighting
-          jq --arg v "${{ steps.version.outputs.version }}" '.version = $v' manifest.json > tmp.json
+          jq --arg v "$RELEASE_VERSION" '.version = $v' manifest.json > tmp.json
           mv tmp.json manifest.json
 
       - name: Create zip
@@ -30,8 +32,10 @@ jobs:
           zip -r ../adaptive_lighting.zip adaptive_lighting/
 
       - name: Verify zip manifest version
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          test "$(unzip -p adaptive_lighting.zip adaptive_lighting/manifest.json | jq -r '.version')" = "${{ steps.version.outputs.version }}"
+          test "$(unzip -p adaptive_lighting.zip adaptive_lighting/manifest.json | jq -r '.version')" = "$RELEASE_VERSION"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

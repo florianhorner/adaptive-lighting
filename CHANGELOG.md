@@ -11,16 +11,19 @@ This is a human-authored fork narrative. Per-release auto-drafted notes live in 
 ## [1.32.0-beta.2] - 2026-07-24
 
 ### Fixed
+
 - Replaced Home Assistant's deprecated `get_astral_location` path with Astral `Observer` calculations. Home Assistant 2026.7+ uses `get_astral_observer`; the fork retains an equivalent fallback for its 2024.12 minimum.
 - Recognize direct and Home Assistant Light Group member `light.turn_on` calls that legitimately reuse an earlier turn-off context. The check is bounded between the recorded off and on state changes, so stale service events and polling artifacts remain blocked.
 
 ### Changed
+
 - Updated the required latest-stable CI leg to Home Assistant `2026.7.4` on Python `3.14.2`; `2024.12.5` remains the required minimum and `dev` remains advisory.
 - Updated the Home Assistant test harness for modern template lights, `requirements_all.txt`, `aiohasupervisor`, and service-translation validation.
 - Added regression coverage for Astral calculations, observer compatibility across the minimum/current HA legs, direct/member group turn-ons, stale events, polling artifacts, and the event-bus group path.
 - Preserved the fork surfaces unchanged: the four-option manual-control selector, per-axis attributes and legacy union, warn-once diagnostics, progressive configuration, diagnostic sensors, group expansion, and Lightener handling.
 
 ### Upstream v1.31 provenance
+
 - **Inherited:** upstream [`6cebe14`](https://github.com/basnijholt/adaptive-lighting/commit/6cebe14a69bf0ea19efeaf3ed5c20e5396087216) / [#1426](https://github.com/basnijholt/adaptive-lighting/pull/1426), which merges `last_service_data` across split adaptation calls, is the exact shared ancestor of beta.1 and upstream v1.31.0.
 - **Already equivalent:** the fork already carried the macOS dependency setup fix from [#1463](https://github.com/basnijholt/adaptive-lighting/pull/1463) and the reduced warning payload from [#1434](https://github.com/basnijholt/adaptive-lighting/pull/1434).
 - **Newly ported:** the runtime and test behavior from [#1482](https://github.com/basnijholt/adaptive-lighting/pull/1482) and [#1483](https://github.com/basnijholt/adaptive-lighting/pull/1483).
@@ -48,6 +51,7 @@ This is a human-authored fork narrative. Per-release auto-drafted notes live in 
 - Thanks to the upstream PR authors whose work on the manual-control mechanism made this surface change small.
 
 ### Switching back to upstream
+
 If this fork misbehaves, switch back to `basnijholt/adaptive-lighting` via HACS — your existing automations work without changes. The fork stays additive; nothing in your config needs to flip.
 
 ---
