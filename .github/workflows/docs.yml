@@ -32,7 +32,9 @@ jobs:
           python-version: '3.14.2'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          prune-cache: true
 
       - name: Install dependencies
         run: uv sync --group docs
@@ -54,7 +56,7 @@ jobs:
         # PRs can never deploy (the deploy job is gated to push on main), so only
         # upload the Pages artifact on push. PRs still run the build as a sanity check.
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./site
 
@@ -68,4 +70,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
