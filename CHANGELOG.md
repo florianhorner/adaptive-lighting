@@ -8,6 +8,19 @@ This is a human-authored fork narrative. Per-release auto-drafted notes live in 
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-08-31
+
+### Changed
+
+- First stable release on the fork's `1.32.0` track. Promotes `v1.32.0-beta.2` plus CI maintenance from [#28](https://github.com/florianhorner/adaptive-lighting-fork/pull/28).
+- Fork version numbers remain independent of upstream; this is not the same code as upstream `v1.31.0`.
+- Pinned `astral-sh/setup-uv` to immutable v10 and updated Pages upload/deploy actions to v5 ([#28](https://github.com/florianhorner/adaptive-lighting-fork/pull/28)).
+
+### Notes
+
+- Establishes a real GitHub/HACS **Latest** stable. Prior Latest incorrectly pointed at mislabeled `v1.31.0-beta.2` (`prerelease: false`).
+- No Home Assistant runtime behavior change versus `v1.32.0-beta.2`; integration code is unchanged since that beta.
+
 ## [1.32.0-beta.2] - 2026-07-24
 
 ### Fixed
@@ -56,6 +69,7 @@ If this fork misbehaves, switch back to `basnijholt/adaptive-lighting` via HACS 
 
 ---
 
-[Unreleased]: https://github.com/florianhorner/adaptive-lighting-fork/compare/v1.32.0-beta.2...HEAD
+[Unreleased]: https://github.com/florianhorner/adaptive-lighting-fork/compare/v1.32.0...HEAD
+[1.32.0]: https://github.com/florianhorner/adaptive-lighting-fork/compare/v1.32.0-beta.2...v1.32.0
 [1.32.0-beta.2]: https://github.com/florianhorner/adaptive-lighting-fork/compare/v1.32.0-beta.1...v1.32.0-beta.2
 [1.32.0-beta.1]: https://github.com/florianhorner/adaptive-lighting-fork/releases/tag/v1.32.0-beta.1
