@@ -1,7 +1,10 @@
-> **Fork of [basnijholt/adaptive-lighting](https://github.com/basnijholt/adaptive-lighting)**
-> maintained by [@florianhorner](https://github.com/florianhorner).
-> Additional fixes and community PRs ship here and are contributed back upstream where possible.
-> See [Why this fork exists](#why-this-fork-exists), [What this fork adds](#what-this-fork-adds), or [switch back to upstream](#switch-back-to-upstream).
+> **Personal playground for [Adaptive Lighting](https://github.com/basnijholt/adaptive-lighting)**
+>
+> I use this repository to test fixes, experimental features, and selected community contributions in my Home Assistant setup. Useful changes may be proposed upstream.
+>
+> This is not an official release channel or supported replacement. Most users should install and follow the upstream project.
+>
+> These builds are for testing only and may temporarily diverge from upstream or change without compatibility guarantees.
 
 ---
 
